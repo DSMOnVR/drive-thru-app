@@ -38,6 +38,13 @@
       <div class="app-brand"><span class="arches">M</span><span>DSMDonalds</span></div>
       <a class="user-pill-btn" href="phone.html" style="text-decoration:none;display:inline-flex;align-items:center">Home</a>
     </header>
+    <div class="topnav-pills" style="padding:10px 14px;display:flex;gap:8px;overflow:auto;border-bottom:1px solid var(--border);background:rgba(18,20,28,.95);position:sticky;top:53px;z-index:9">
+      <button class="btn secondary" data-tab="rewards" style="padding:8px 12px;white-space:nowrap">Rewards</button>
+      <button class="btn secondary" data-tab="order" style="padding:8px 12px;white-space:nowrap">Order</button>
+      <button class="btn secondary" data-tab="scan" style="padding:8px 12px;white-space:nowrap">Scan & Pay</button>
+      <button class="btn secondary" data-tab="deals" style="padding:8px 12px;white-space:nowrap">Deals</button>
+      <button class="btn secondary" data-tab="account" style="padding:8px 12px;white-space:nowrap">Account</button>
+    </div>
 
     <main class="app-main">
       <section class="tab-page active" id="tab-rewards">
@@ -130,13 +137,7 @@
       </section>
     </main>
 
-    <nav class="tabbar">
-      <button class="tab active" data-tab="rewards"><span class="ico">★</span><span>Rewards</span></button>
-      <button class="tab" data-tab="order"><span class="ico">🍔</span><span>Order</span></button>
-      <button class="tab" data-tab="scan"><span class="ico">⌁</span><span>Scan</span></button>
-      <button class="tab" data-tab="deals"><span class="ico">%</span><span>Deals</span></button>
-      <button class="tab" data-tab="account"><span class="ico">☺</span><span>Account</span></button>
-    </nav>
+  </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
@@ -168,8 +169,8 @@
     $('loginBtn').onclick=async()=>{if(DT.getSync()) await DT.pullSync(true); const u=DT.getUserByCode($('loginCode').value.trim()); if(!u){$('authMsg').textContent='No account found.';return;} DT.setSession({userId:u.id}); render();};
     $('signupBtn').onclick=async()=>{const name=$('suName').value.trim()||'Guest'; if(DT.getSync()) await DT.pullSync(true); const d=DT.load(),code=DT.genCode(); const user={id:DT.uid(),name,code,cardLast4:code,balance:0,points:0,offers:[]}; d.users.push(user); DT.save(d); DT.setSession({userId:user.id}); render();};
     $('logoutBtn').onclick=()=>{DT.logout(); render();};
-    function showTab(name){document.querySelectorAll('.tab-page').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name)); document.querySelectorAll('.tabbar .tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name)); if(name!=='scan') stopScan(); window.scrollTo(0,0);}
-    document.querySelectorAll('.tabbar .tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab)); document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go));
+    function showTab(name){document.querySelectorAll('.tab-page').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name)); document.querySelectorAll('[data-tab]').forEach(t=>{ if(t.classList.contains('btn')){ t.classList.toggle('secondary', t.dataset.tab!==name); if(t.dataset.tab===name) t.classList.remove('secondary'); }}); if(name!=='scan') stopScan(); window.scrollTo(0,0);}
+    document.querySelectorAll('[data-tab]').forEach(t=>t.onclick=()=>showTab(t.dataset.tab)); document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go));
     $('orderCheckout').onclick=()=>{if(orderTotal()<=0){alert('Add items');return;} const u=DT.currentUser(); if(!u){alert('Log in');return;} $('confirmSummary').innerHTML=orderCart.map(i=>`<div class="pos-line"><span>${i.name}</span><span>${DT.fmt(i.price)}</span></div>`).join(''); $('confirmTotal').textContent=DT.fmt(orderTotal()); $('confirmCard').textContent='Paying with: '+u.name+' · '+(u.unlimited?'Unlimited card':DT.fmt(u.balance||0)); $('confirmMsg').textContent='Confirm in the rewards app to place and pay for your order.'; showOrderView('confirm');};
     $('backToCart').onclick=()=>showOrderView('shop'); $('newOrderBtn').onclick=()=>{orderCart=[]; renderOrderCart(); showOrderView('shop'); showTab('order');};
     $('confirmOrderPay').onclick=async()=>{const msg=$('confirmMsg'),u=DT.currentUser(); if(!u){msg.textContent='Log in.';return;} if(DT.getSync()) await DT.pullSync(true); const d=DT.load(),me=d.users.find(x=>x.id===u.id); if(!me){msg.textContent='Account not found.';return;} const total=orderTotal(); if(total<=0){msg.textContent='Cart is empty.';return;} if(!me.unlimited && Number(me.balance||0)<total){msg.textContent='Insufficient balance.';return;} if(!me.unlimited) me.balance=Number(me.balance||0)-total; const ptsEarned=Math.floor(total*(d.rewards.pointsPerDollar||10)); me.points=(me.points||0)+ptsEarned; const receipt={id:'R'+DT.uid(),userId:me.id,cardName:me.name,items:orderCart.map(i=>({name:i.name,price:i.price})),total,unlimited:!!me.unlimited,pointsEarned,at:Date.now(),status:'paid'}; d.receipts=d.receipts||[]; d.receipts.unshift(receipt); d.orders=d.orders||[]; d.orders.unshift({id:'O'+DT.uid(),userId:me.id,items:receipt.items,total,at:receipt.at,status:'confirmed',receiptId:receipt.id}); DT.save(d); orderCart=[]; renderOrderCart(); msg.textContent=''; showReceipt(receipt); render();};
