@@ -57,7 +57,8 @@
   function currentUser(){const s=getSession(); return s&&s.userId?getUserById(s.userId):null}
   function logout(){setSession(null)}
 
-  function getSync(){try{return JSON.parse(localStorage.getItem(SYNC_KEY)||'null')}catch(e){return null}}
+  const DEFAULT_SUPABASE={provider:'supabase',url:'https://ymbqmxvplgzotpqsrsoc.supabase.co',key:'sb_publishable_9fmhozzMDYj_jgQ1AactVw_qeNPzq8Q',id:'main',table:'app_state'};
+  function getSync(){try{const s=JSON.parse(localStorage.getItem(SYNC_KEY)||'null'); return s || DEFAULT_SUPABASE;}catch(e){return DEFAULT_SUPABASE}}
   function setSyncCfg(cfg){if(cfg) localStorage.setItem(SYNC_KEY,JSON.stringify(cfg)); else localStorage.removeItem(SYNC_KEY);}
 
   function syncUrl(cfg){
@@ -190,7 +191,8 @@
 
   window.DT={KEY,SYNC_KEY,SESSION_KEY,load,save,uid,now,fmt,genCode,makeQRUrl,getUserByCode,getUserById,upsertUser,addMenuItem,setPendingPayment,clearPendingPayment,seed,normalize,
     getSession,setSession,currentUser,logout,
-    getSync,setSyncCfg,createSyncRoom,joinSyncRoom,pullSync,pushSync,startSync,stopSync,connectSupabase};
+    getSync,setSyncCfg,createSyncRoom,joinSyncRoom,pullSync,pushSync,startSync,stopSync,connectSupabase,DEFAULT_SUPABASE};
+  if(!localStorage.getItem(SYNC_KEY)){ setSyncCfg(DEFAULT_SUPABASE); }
   startSync();
   document.addEventListener('visibilitychange',()=>{if(!document.hidden) pullSync(false)});
 })();
