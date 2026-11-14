@@ -4,8 +4,8 @@
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#c8102e",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
   "description": "DSMDonalds drive-thru, rewards, wallet, and scan-to-pay.",
   "icons": [
     { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }

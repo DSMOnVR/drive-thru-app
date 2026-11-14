@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="DSMDonalds" />
-  <meta name="theme-color" content="#c8102e" />
+  <meta name="theme-color" content="#0f1115" />
   <title>DSMDonalds App</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="assets/icon.svg" />
@@ -65,16 +65,15 @@
       </section>
 
       <section class="tab-page" id="tab-scan">
-        <div class="section-title">Scan & Pay</div>
+        <div class="section-title">Tap / Scan to Pay</div>
         <div class="panel soft">
-          <p class="small">Scan the payment QR shown on the PC register to pay with your DSM Pay balance. For cross-device payments, both devices must use the same Sync ID.</p>
-          <div class="row"><button class="btn" id="startScan">Start Camera Scan</button><button class="btn secondary" id="stopScan">Stop</button></div>
+          <p class="small">When the register shows Tap to Pay, scan the code with your camera to pay from your DSM Pay balance.</p>
+          <div class="row"><button class="btn" id="startScan">Start Scan</button><button class="btn secondary" id="stopScan">Stop</button></div>
           <div id="scanWrap" style="margin-top:10px;display:none"><video id="video" playsinline></video><canvas id="scanCanvas" style="display:none"></canvas></div>
-          <label>Or paste payment data</label>
-          <textarea id="payPaste" rows="3" placeholder='{"t":"pay","id":"...","amount":...}'></textarea>
-          <label>Or upload QR image</label>
-          <input id="qrFile" type="file" accept="image/*" capture="environment" />
-          <button class="btn green block" style="margin-top:10px" id="confirmPay">Confirm & Pay</button>
+          <input type="hidden" id="payPaste" />
+          <label style="margin-top:10px">Scan from photo (if camera unavailable)</label>
+          <input id="qrFile" type="file" accept="image/*" />
+          <button class="btn green block" style="margin-top:10px" id="confirmPay">Pay Now</button>
           <div id="payMsg" class="small" style="margin-top:8px"></div>
         </div>
       </section>
@@ -189,7 +188,7 @@
     document.querySelectorAll('.tabbar .tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
     document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go));
 
-    function handleScanText(text){ if(!text) return; $('payPaste').value=text; $('payMsg').textContent='QR detected. Tap Confirm & Pay.'; stopScan(); }
+    function handleScanText(text){ if(!text) return; $('payPaste').value=text; $('payMsg').textContent='Payment detected. Tap Pay Now.'; stopScan(); }
     async function scanLoop(){
       const v=$('video'); if(!v || v.readyState<2) return;
       try{
@@ -205,7 +204,7 @@
         const v=$('video'); v.srcObject=stream; await v.play();
         $('scanWrap').style.display='block'; msg.textContent='Scanning... point at register QR.';
         scanTimer=setInterval(scanLoop, 350);
-      }catch(e){ msg.textContent='Camera unavailable: '+e.message+'. You can paste payment data or upload a QR image below.'; }
+      }catch(e){ msg.textContent='Camera unavailable: '+e.message+'. You can use "Scan from photo" below.'; }
     }
     function stopScan(){ if(scanTimer) clearInterval(scanTimer); scanTimer=null; if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null;} $('scanWrap').style.display='none'; }
     $('startScan').onclick=startScan; $('stopScan').onclick=stopScan;
@@ -218,11 +217,11 @@
     $('confirmPay').onclick=async()=>{
       const msg=$('payMsg'); const u=DT.currentUser();
       if(!u){msg.textContent='Please log in.'; return;}
-      let payload; try{payload=JSON.parse($('payPaste').value.trim());}catch(e){msg.textContent='Invalid payment data.'; return;}
-      if(!payload || payload.t!=='pay' || !payload.id){msg.textContent='Not a valid payment QR/data.'; return;}
+      let payload; try{payload=JSON.parse(($('payPaste').value||'').trim());}catch(e){msg.textContent='No payment scanned yet. Scan the register code first.'; return;}
+      if(!payload || payload.t!=='pay' || !payload.id){msg.textContent='No valid payment detected. Scan the register code first.'; return;}
       if(DT.getSync()) await DT.pullSync(true);
       const d=DT.load(); const p=d.pendingPayment;
-      if(!p || p.id!==payload.id || p.status!=='pending'){msg.textContent='No matching pending payment found. Make sure the register created this payment and both devices use the same Sync ID, then try again.'; return;}
+      if(!p || p.id!==payload.id || p.status!=='pending'){msg.textContent='No matching Tap to Pay request found. Make sure the register started Tap to Pay (same synced data), then scan again.'; return;}
       const amt=Number(p.amount||payload.amount||0);
       const me=d.users.find(x=>x.id===u.id);
       if(!me || Number(me.balance||0) < amt){msg.textContent='Insufficient balance on this card.'; return;}
