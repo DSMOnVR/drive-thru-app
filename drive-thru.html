@@ -73,6 +73,7 @@
     let ttsEnabled=false, recognition=null, listening=false;
     let convo=[], processedChat=new Set(), orderItems=[], stage='greet', pendingUser=null, seenChatCount=-1; // greet,taking,confirm,code,done
     function initProcessed(){ const d=DT.load(); processedChat=new Set((d.driveThruChat||[]).filter(m=>m.from==='phone').map(m=>m.id)); seenChatCount=(d.driveThruChat||[]).length; }
+    function ensureGreeted(){ if(stage==='greet' && convo.length===0){ resetOrder(true); } }
     function speak(text){ if(!text) return; pushConvo('ai',text); if(ttsEnabled && 'speechSynthesis' in window){ window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=1; window.speechSynthesis.speak(u);} }
     function pushConvo(who,text){ convo.push({who,text,at:Date.now()}); if(convo.length>80) convo=convo.slice(-80); renderConvo(); }
     function renderConvo(){ $('aiChat').innerHTML=convo.map(m=>`<div class="bubble ${m.who==='ai'?'ai':'cust'}"><div class="meta">${m.who==='ai'?'Drive-Thru AI':'Customer'} · ${new Date(m.at).toLocaleTimeString()}</div><div>${String(m.text).replace(/</g,'&lt;')}</div></div>`).join('')||'<div class="meta">No conversation yet.</div>'; $('aiChat').scrollTop=$('aiChat').scrollHeight; }
@@ -112,28 +113,29 @@
       const text=String(textRaw||'').trim(); if(!text) return;
       pushConvo('cust', text);
       const t=text.toLowerCase();
-      if(stage==='greet' || stage==='done'){ resetOrder(false); }
+      if(stage==='done'){ orderItems=[]; stage='taking'; pendingUser=null; }
+      if(stage==='greet'){ stage='taking'; }
       if(stage==='taking'){
-        if(/\b(that'?s all|thats all|nothing else|nope|no thanks|no that is all|i'm done|im done|done)\b/.test(t) && !/\b(no pickles|no onions|no salt)\b/.test(t)){
-          if(!orderItems.length){ aiSay('I don\'t have any items yet. What would you like to order?'); return; }
-          stage='code'; aiSay('Is that all? Great. What is your 4 digit rewards number?'); renderOrder(); return;
+        if(orderItems.length && /\b(yes|yeah|yep|yup|that'?s all|that is all|thats all|nothing else|nope|no thanks|no,? that'?s all|i'm done|im done|done|all)\b/.test(t) && !/\b(burger|fries|nugget|cola|drink|soda|shake|want|add|get|one|two|three|1|2|3)\b/.test(t)){
+          stage='code'; aiSay('Great. What is your 4 digit rewards number?'); renderOrder(); return;
         }
         const matches=findMenuMatches(t);
         if(matches.length){ orderItems.push(...matches); renderOrder(); const names=matches.map(m=>m.name).join(', '); aiSay(`Added ${names}. Is that all?`); return; }
-        if(/\b(yes|yeah|yep|that'?s it|that is it)\b/.test(t) && orderItems.length){ stage='code'; aiSay('Great. What is your 4 digit rewards number?'); return; }
-        aiSay('Got it. You can say an item like "one Big Burger and fries". Anything else, or is that all?');
-        return;
-      }
-      if(stage==='confirm'){
-        if(/\b(yes|yeah|yep|that'?s all|sure)\b/.test(t)){ stage='code'; aiSay('What is your 4 digit rewards number?'); }
-        else { stage='taking'; handleCustomer(text); }
+        if(orderItems.length && /\b(no)\b/.test(t)){
+          stage='code'; aiSay('Okay. What is your 4 digit rewards number?'); renderOrder(); return;
+        }
+        if(!orderItems.length){
+          aiSay('What would you like to order? You can say for example: "one Big Burger and fries".');
+        } else {
+          aiSay('Anything else? If that\'s all, say "that\'s all".');
+        }
         return;
       }
       if(stage==='code'){
         const m=t.match(/\b(\d{4})\b/);
         if(m){ finalizeWithCode(m[1]); return; }
-        if(/\b(skip|none|guest)\b/.test(t)){ finalizeWithCode('0000'); return; }
-        aiSay('Please tell me your 4 digit rewards number so I can send your receipt. (Or say "skip" for guest.)');
+        if(/\b(skip|none|guest|no)\b/.test(t)){ finalizeWithCode('0000'); return; }
+        aiSay('Please tell me your 4 digit rewards number so I can send your receipt to your Messages app. (Or say "skip".)');
         return;
       }
     }
@@ -141,9 +143,9 @@
     function processPhoneMessages(){
       const d=DT.load(); const chat=(d.driveThruChat||[]).slice().sort((a,b)=>a.at-b.at);
       if(chat.length===0 && (seenChatCount>0 || convo.length>0)){
-        // chat cleared (new call/session) - reset AI state for fresh conversation
         convo=[]; orderItems=[]; stage='greet'; pendingUser=null; processedChat=new Set(); renderConvo(); renderOrder();
       }
+      if(chat.length>0 && stage==='greet' && convo.length===0){ resetOrder(true); }
       seenChatCount=chat.length;
       chat.forEach(m=>{ if(m.from==='phone' && !processedChat.has(m.id)){ processedChat.add(m.id); handleCustomer(m.text); } });
     }
@@ -158,7 +160,7 @@
     $('aiSend').onclick=()=>{ const t=$('aiInput').value; $('aiInput').value=''; handleCustomer(t); };
     $('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault(); $('aiSend').click();} });
     $('newOrder').onclick=()=>{ convo=[]; renderConvo(); resetOrder(true); };
-    $('enableTts').onclick=()=>{ ttsEnabled=true; $('status').textContent='Voice enabled. AI will speak responses and listen for orders.'; speak('Drive thru A I ready. Welcome to D S M Donalds. What can I get for you today?'); stage='taking'; };
+    $('enableTts').onclick=()=>{ ttsEnabled=true; $('status').textContent='Voice enabled. AI will speak responses and listen for orders.'; if(stage==='greet' || convo.length===0){ orderItems=[]; stage='taking'; speak('Drive thru A I ready. Welcome to D S M Donalds. What can I get for you today?'); renderOrder(); } else { speak('Voice enabled.'); } };
     window.addEventListener('dt-update',()=>{ renderPhone(); renderReceipts(); processPhoneMessages(); });
     window.addEventListener('storage',()=>{ renderPhone(); renderReceipts(); processPhoneMessages(); });
     setInterval(()=>{ if(DT.getSync()) DT.pullSync(false); processPhoneMessages(); }, 2500);
