@@ -43,29 +43,19 @@
         <label>Points per $1</label><input id="ppd" type="number" step="1" />
         <button class="btn" style="margin-top:10px" id="saveRewards">Save Settings</button>
         <hr>
-        <h3 style="margin:0 0 8px">Real-time Sync</h3>
-        <p class="small">Use the same Sync ID on Admin/Register/Menu and Phone so users (e.g. Dylan), points, payments, offers, and menu stay in sync across devices.</p>
-        <label>Sync ID / Room</label>
-        <input id="syncId" placeholder="Sync ID / Room (e.g. main)" />
-        <details style="margin-top:8px"><summary><b>Supabase Sync (recommended if CORS blocks auto sync)</b></summary>
-          <p class="small" style="margin:8px 0">Create a free Supabase project, run the SQL below in SQL Editor, then enter your Project URL + anon public key here (same on all devices).</p>
-          <pre class="small" style="white-space:pre-wrap;background:#f7f7f7;padding:8px;border-radius:8px;border:1px solid #eee">create table if not exists app_state (
-  id text primary key,
-  data jsonb,
-  updated_at timestamptz default now()
-);
-alter table app_state enable row level security;
-create policy "anon all" on app_state for all to anon using (true) with check (true);</pre>
-          <label>Supabase Project URL</label><input id="sbUrl" placeholder="https://xxxx.supabase.co" />
+        <h3 style="margin:0 0 8px">Sync</h3>
+        <p class="small"><b>Automatic:</b> Supabase sync is enabled by default for all devices (no join needed). Data (users, menu, points, offers, payments) syncs automatically.</p>
+        <div class="row" style="margin-top:8px"><button class="btn secondary" id="pullSync">Refresh Sync</button></div>
+        <div id="syncMsg" class="small" style="margin-top:8px"></div>
+        <details style="margin-top:8px"><summary class="small">Advanced sync settings (optional)</summary>
+          <label>Sync ID / Room</label><input id="syncId" placeholder="main" />
+          <div class="row" style="margin-top:8px"><button class="btn secondary" id="joinSync">Join/Set Room</button><button class="btn secondary" id="createSync">Create Auto Sync</button></div>
+          <label style="margin-top:8px">Supabase Project URL</label><input id="sbUrl" placeholder="https://xxxx.supabase.co" />
           <label>Supabase Anon Key</label><input id="sbKey" type="password" placeholder="anon public key" />
-          <div class="row" style="margin-top:8px"><button class="btn" id="connectSupabase">Connect Supabase Sync</button></div>
-        </details>
-        <div class="row" style="margin-top:8px"><button class="btn secondary" id="joinSync">Join Sync</button><button class="btn secondary" id="createSync">Create Auto Sync</button><button class="btn secondary" id="pullSync">Refresh</button></div>
-        <details style="margin-top:8px"><summary class="small">Advanced: GitHub Gist sync</summary>
-          <label>GitHub Token (gist scope)</label><input id="ghToken" type="password" placeholder="ghp_..." />
+          <div class="row" style="margin-top:8px"><button class="btn" id="connectSupabase">Reconnect Supabase</button></div>
+          <label style="margin-top:8px">GitHub Token (gist scope)</label><input id="ghToken" type="password" placeholder="ghp_..." />
           <div class="row" style="margin-top:8px"><button class="btn secondary" id="createGist">Create Gist Sync</button><button class="btn secondary" id="joinGist">Join Gist Sync</button></div>
         </details>
-        <div id="syncMsg" class="small" style="margin-top:8px"></div>
         <hr>
         <h3 style="margin:0 0 8px">Manual Export / Import</h3>
         <p class="small">Backup/copy data manually if needed.</p>
@@ -132,7 +122,7 @@ create policy "anon all" on app_state for all to anon using (true) with check (t
         localStorage.setItem(DT.KEY, JSON.stringify(d)); alert('Imported. Reloading...'); location.reload();
       }catch(e){alert('Import failed: '+e.message);}
     };
-    function refreshSync(){const c=DT.getSync(); document.getElementById('syncId').value=c?c.id:''; if(c&&c.token) document.getElementById('ghToken').value=c.token; if(c&&c.provider==='supabase'){document.getElementById('sbUrl').value=c.url||''; document.getElementById('sbKey').value=c.key||'';} document.getElementById('syncMsg').textContent=c?('Synced ('+c.provider+') · '+c.id):'Not synced (local only).';}
+    function refreshSync(){const c=DT.getSync(); if(document.getElementById('syncId')) document.getElementById('syncId').value=c?c.id:'main'; if(c&&c.token&&document.getElementById('ghToken')) document.getElementById('ghToken').value=c.token; if(c&&c.provider==='supabase'){if(document.getElementById('sbUrl')) document.getElementById('sbUrl').value=c.url||''; if(document.getElementById('sbKey')) document.getElementById('sbKey').value=c.key||'';} document.getElementById('syncMsg').textContent=c?('Synced automatically ('+c.provider+', room '+c.id+')'):'Syncing...';}
     document.getElementById('connectSupabase').onclick=async()=>{const m=document.getElementById('syncMsg'); try{m.textContent='Connecting Supabase...'; const c=await DT.connectSupabase({url:document.getElementById('sbUrl').value,key:document.getElementById('sbKey').value,id:document.getElementById('syncId').value||'main'}); refreshSync(); m.textContent='Supabase sync connected (room: '+c.id+'). Use same URL/key/room on all devices.';}catch(e){m.textContent='Error: '+e.message;}};
     document.getElementById('createSync').onclick=async()=>{const m=document.getElementById('syncMsg'); try{m.textContent='Creating...'; const c=await DT.createSyncRoom(); refreshSync(); m.textContent='Created. Use this ID on all devices: '+c.id;}catch(e){m.textContent='Error: '+e.message;}};
     document.getElementById('joinSync').onclick=async()=>{const m=document.getElementById('syncMsg'); try{m.textContent='Joining...'; const token=document.getElementById('ghToken').value.trim(); await DT.joinSyncRoom(document.getElementById('syncId').value.trim(), token?'gist':null, {token, forceGist:!!token}); refreshSync(); m.textContent='Joined sync.';}catch(e){m.textContent='Error: '+e.message;}};
