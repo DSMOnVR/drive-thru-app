@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0f1115" />
+  <title>DSMDonalds Drive-Thru (PC)</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    body{background:#0b0d12;color:#fff;font-family:system-ui,Segoe UI,Arial;margin:0}
+    .wrap{max-width:1100px;margin:0 auto;padding:20px}
+    .head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+    .title{font-size:1.8rem;font-weight:900}.title span{color:#ffbc0d}
+    .panel{background:#151923;border:1px solid #2a2f3d;border-radius:16px;padding:16px;margin-top:14px}
+    .call{padding:14px;border:1px solid #2a2f3d;border-radius:14px;margin-top:10px;background:#101420}
+    .call.new{border-color:#1f8f4e;box-shadow:0 0 0 1px rgba(31,143,78,.3)}
+    .meta{color:#9aa3b2;font-size:.9rem}
+    .order-text{font-size:1.2rem;font-weight:700;margin:6px 0}
+    .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    button{background:#d9232e;color:#fff;border:0;border-radius:12px;padding:10px 14px;font-weight:800;cursor:pointer}
+    button.secondary{background:#2a2f3d}
+    .status{color:#9aa3b2;margin-top:8px}
+    .big{font-size:1rem}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div class="title"><span>M</span> DSMDonalds Drive-Thru Speaker (PC)</div>
+      <div class="controls">
+        <button id="enableTts">Enable Voice (TTS)</button>
+        <button class="secondary" id="testTts">Test Voice</button>
+        <a href="index.html" style="color:#fff;align-self:center">Home</a>
+      </div>
+    </div>
+    <div id="status" class="status">Waiting for calls/orders from the phone app... (TTS will speak new orders when enabled)</div>
+    <div class="panel">
+      <div style="font-weight:800;margin-bottom:6px">Incoming Calls & Orders</div>
+      <div id="calls" class="big"></div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    const $=id=>document.getElementById(id);
+    let ttsEnabled=false, spoken=new Set();
+    function speak(text){
+      if(!ttsEnabled || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(text);
+      u.rate=1; u.pitch=1; u.volume=1;
+      window.speechSynthesis.speak(u);
+    }
+    function render(){
+      const d=DT.load();
+      const calls=(d.driveThruCalls||[]).slice().sort((a,b)=>b.at-a.at);
+      if(!calls.length){ $('calls').innerHTML='<div class="meta">No calls yet. Open DSMDonalds on the phone, go to Map, and place an order.</div>'; return; }
+      $('calls').innerHTML=calls.map(c=>{
+        const when=new Date(c.at).toLocaleString();
+        const who=c.userName||'Guest';
+        const msg=c.message||c.orderText||'New order';
+        return `<div class="call ${spoken.has(c.id)?'':'new'}" data-id="${c.id}">
+          <div class="meta">${when} · ${who} ${c.code?('· Code '+c.code):''}</div>
+          <div class="order-text">${msg.replace(/</g,'&lt;')}</div>
+          <div class="meta">Status: ${c.status||'received'}${c.total!=null?' · Total: '+DT.fmt(c.total):''}</div>
+          <div class="controls"><button data-speak="${c.id}">Speak</button><button class="secondary" data-done="${c.id}">Mark Done</button></div>
+        </div>`;
+      }).join('');
+      document.querySelectorAll('[data-speak]').forEach(b=>b.onclick=()=>{const c=calls.find(x=>x.id===b.dataset.speak); if(c) speak('Order from '+(c.userName||'guest')+'. '+(c.message||c.orderText||''));});
+      document.querySelectorAll('[data-done]').forEach(b=>b.onclick=()=>{const dd=DT.load(); const x=dd.driveThruCalls.find(x=>x.id===b.dataset.done); if(x){x.status='done'; DT.save(dd);} });
+      // auto speak new
+      calls.slice().reverse().forEach(c=>{
+        if(!spoken.has(c.id)){
+          spoken.add(c.id);
+          if(ttsEnabled){ speak('New drive thru order from '+(c.userName||'guest')+'. '+(c.message||c.orderText||'')); }
+        }
+      });
+    }
+    $('enableTts').onclick=()=>{ ttsEnabled=true; $('status').textContent='Voice enabled. New incoming orders will be read aloud.'; speak('Drive thru speaker enabled.'); render(); };
+    $('testTts').onclick=()=>{ const was=ttsEnabled; ttsEnabled=true; speak('This is a test. Welcome to D S M Donalds drive thru.'); ttsEnabled=was; };
+    window.addEventListener('dt-update',render); window.addEventListener('storage',render);
+    setInterval(()=>{ if(DT.getSync()) DT.pullSync(false); }, 3000);
+    render();
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+  </script>
+</body>
+</html>
