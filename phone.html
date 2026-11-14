@@ -266,7 +266,6 @@
     }
     function cashTagFor(u){return '$'+(u&&u.code?u.code:(u&&u.name?u.name.replace(/[^a-z0-9]/ig,'').toLowerCase():'user'));}
 
-0:00
     function renderCash(){
       const u=DT.currentUser(); if(!u || !$('cashBalance')) return;
       $('cashBalance').textContent = u.unlimited ? 'Unlimited' : DT.fmt(u.balance||0);
