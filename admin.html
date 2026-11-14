@@ -43,8 +43,15 @@
         <label>Points per $1</label><input id="ppd" type="number" step="1" />
         <button class="btn" style="margin-top:10px" id="saveRewards">Save Settings</button>
         <hr>
-        <h3 style="margin:0 0 8px">Data / Sync (Export & Import)</h3>
-        <p class="small">Data is stored in this browser's localStorage (per device). To sync between PC and iPhone on static hosting, export from one device and import on the other.</p>
+        <h3 style="margin:0 0 8px">Real-time Sync</h3>
+        <p class="small">Use the same Sync ID on Admin/Register/Menu and Phone so users (e.g. Dylan), points, payments, offers, and menu stay in sync across devices.</p>
+        <label>Sync ID</label>
+        <input id="syncId" placeholder="Sync ID" />
+        <div class="row" style="margin-top:8px"><button class="btn secondary" id="joinSync">Join Sync</button><button class="btn secondary" id="createSync">Create Sync</button><button class="btn secondary" id="pullSync">Refresh</button></div>
+        <div id="syncMsg" class="small" style="margin-top:8px"></div>
+        <hr>
+        <h3 style="margin:0 0 8px">Manual Export / Import</h3>
+        <p class="small">Backup/copy data manually if needed.</p>
         <label>Export / Import JSON</label>
         <textarea id="syncData" rows="6" placeholder="Click Export to generate data, copy it to another device, then paste and Import."></textarea>
         <div class="row" style="margin-top:8px">
@@ -108,8 +115,13 @@
         localStorage.setItem(DT.KEY, JSON.stringify(d)); alert('Imported. Reloading...'); location.reload();
       }catch(e){alert('Import failed: '+e.message);}
     };
-    document.getElementById('reset').onclick=()=>{if(confirm('Reset all demo data?')){localStorage.removeItem(DT.KEY); DT.seed(); render();}};
-    window.addEventListener('storage',render); render();
+    function refreshSync(){const c=DT.getSync(); document.getElementById('syncId').value=c?c.id:''; document.getElementById('syncMsg').textContent=c?('Synced · '+c.id):'Not synced (local only).';}
+    document.getElementById('createSync').onclick=async()=>{const m=document.getElementById('syncMsg'); try{m.textContent='Creating...'; const c=await DT.createSyncRoom(); refreshSync(); m.textContent='Created. Use this ID on all devices: '+c.id;}catch(e){m.textContent='Error: '+e.message;}};
+    document.getElementById('joinSync').onclick=async()=>{const m=document.getElementById('syncMsg'); try{m.textContent='Joining...'; await DT.joinSyncRoom(document.getElementById('syncId').value.trim(),'jsonstorage'); refreshSync(); m.textContent='Joined sync.';}catch(e){m.textContent='Error: '+e.message;}};
+    document.getElementById('pullSync').onclick=async()=>{if(!DT.getSync()){document.getElementById('syncMsg').textContent='No sync room.';return;} await DT.pullSync(true); refreshSync(); document.getElementById('syncMsg').textContent='Refreshed.'; render();};
+    document.getElementById('reset').onclick=()=>{if(confirm('Reset all demo data?')){localStorage.removeItem(DT.KEY); DT.seed(); render(); refreshSync();}};
+    window.addEventListener('storage',render); window.addEventListener('dt-update',render);
+    refreshSync(); render();
   </script>
   <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}</script>
 </body>
