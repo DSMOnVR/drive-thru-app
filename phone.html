@@ -264,7 +264,7 @@
     document.querySelectorAll('.tabbar .tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
     document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go));
 
-    function handleScanText(text){ if(!text) return; $('payPaste').value=text; $('payMsg').textContent='Payment detected. Tap Pay Now.'; stopScan(); }
+    function handleScanText(text){ if(!text || paying) return; $('payPaste').value=text; $('payMsg').textContent='Payment detected. Processing...'; stopScan(); confirmTapPayment(true); }
     async function scanLoop(){
       const v=$('video'); if(!v || v.readyState<2) return;
       try{
@@ -283,6 +283,60 @@
       }catch(e){ msg.textContent='Camera unavailable: '+e.message+'. You can use "Scan from photo" below.'; }
     }
     function stopScan(){ if(scanTimer) clearInterval(scanTimer); scanTimer=null; if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null;} $('scanWrap').style.display='none'; }
+    $('orderCheckout').onclick=()=>{
+      if(orderTotal()<=0){alert('Add items to your order'); return;}
+      const u=DT.currentUser(); if(!u){alert('Log in to confirm order'); return;}
+      $('confirmSummary').innerHTML=orderCart.map(i=>`<div class="pos-line"><span>${i.name}</span><span>${DT.fmt(i.price)}</span></div>`).join('');
+      $('confirmTotal').textContent=DT.fmt(orderTotal());
+      $('confirmCard').textContent='Paying with: '+u.name+' · '+(u.unlimited?'Unlimited card':DT.fmt(u.balance||0))+' · '+(u.points||0)+' pts';
+      $('confirmMsg').textContent='Confirm in the rewards app to place and pay for your order.';
+      showOrderView('confirm');
+    };
+    $('backToCart').onclick=()=>showOrderView('shop');
+    $('newOrderBtn').onclick=()=>{orderCart=[]; renderOrderCart(); showOrderView('shop'); showTab('order');};
+    $('confirmOrderPay').onclick=async()=>{
+      const msg=$('confirmMsg'); const u=DT.currentUser(); if(!u){msg.textContent='Please log in.'; return;}
+      if(DT.getSync()) await DT.pullSync(true);
+      const d=DT.load(); const me=d.users.find(x=>x.id===u.id); if(!me){msg.textContent='Account not found.'; return;}
+      const total=orderTotal(); if(total<=0){msg.textContent='Cart is empty.'; return;}
+      if(!me.unlimited && Number(me.balance||0) < total){msg.textContent='Insufficient balance on this card.'; return;}
+      if(!me.unlimited) me.balance = Number(me.balance||0) - total;
+      const ptsEarned = Math.floor(total * (d.rewards.pointsPerDollar||10));
+      me.points = (me.points||0) + ptsEarned;
+      const receipt={id:'R'+DT.uid(), userId:me.id, cardName:me.name, items:orderCart.map(i=>({name:i.name,price:i.price})), total, unlimited:!!me.unlimited, pointsEarned:ptsEarned, at:Date.now(), status:'paid'};
+      d.receipts=d.receipts||[]; d.receipts.unshift(receipt);
+      d.orders=d.orders||[]; d.orders.unshift({id:'O'+DT.uid(), userId:me.id, items:receipt.items, total, at:receipt.at, status:'confirmed', receiptId:receipt.id});
+      DT.save(d);
+      orderCart=[]; renderOrderCart();
+      msg.textContent='';
+      showReceipt(receipt);
+      render();
+    };
+    renderOrderMenu(); renderOrderCart(); showOrderView('shop');
+
+    let paying=false;
+    async function confirmTapPayment(auto){
+      if(paying) return; const msg=$('payMsg'); const u=DT.currentUser();
+      if(!u){msg.textContent='Please log in.'; return;}
+      let payload; try{payload=JSON.parse(($('payPaste').value||'').trim());}catch(e){if(!auto) msg.textContent='No payment scanned yet. Scan the register code first.'; return;}
+      if(!payload || payload.t!=='pay' || !payload.id){if(!auto) msg.textContent='No valid payment detected. Scan the register code first.'; return;}
+      paying=true; msg.textContent='Processing payment...';
+      try{
+        if(DT.getSync()) await DT.pullSync(true);
+        const d=DT.load(); const p=d.pendingPayment;
+        if(!p || p.id!==payload.id || p.status!=='pending'){msg.textContent='No matching Tap to Pay request found. Make sure register started Tap to Pay, then scan again.'; paying=false; return;}
+        const amt=Number(p.amount||payload.amount||0);
+        const me=d.users.find(x=>x.id===u.id);
+        if(!me || (!me.unlimited && Number(me.balance||0) < amt)){msg.textContent='Insufficient balance on this card.'; paying=false; return;}
+        if(!me.unlimited) me.balance = Number(me.balance||0) - amt;
+        p.status='paid'; p.paidBy=me.id; p.paidAt=Date.now();
+        d.pendingPayment=p; DT.save(d);
+        msg.textContent='Payment approved for '+DT.fmt(amt)+'. Tap to Pay completed.';
+        $('payPaste').value='';
+        render();
+      }catch(e){msg.textContent='Payment failed. Try again.';}
+      paying=false;
+    }
     $('startScan').onclick=startScan; $('stopScan').onclick=stopScan;
     $('qrFile').onchange=async(e)=>{
       const f=e.target.files[0]; if(!f||!window.jsQR) return;
@@ -290,23 +344,7 @@
       img.src=URL.createObjectURL(f);
     };
 
-    $('confirmPay').onclick=async()=>{
-      const msg=$('payMsg'); const u=DT.currentUser();
-      if(!u){msg.textContent='Please log in.'; return;}
-      let payload; try{payload=JSON.parse(($('payPaste').value||'').trim());}catch(e){msg.textContent='No payment scanned yet. Scan the register code first.'; return;}
-      if(!payload || payload.t!=='pay' || !payload.id){msg.textContent='No valid payment detected. Scan the register code first.'; return;}
-      if(DT.getSync()) await DT.pullSync(true);
-      const d=DT.load(); const p=d.pendingPayment;
-      if(!p || p.id!==payload.id || p.status!=='pending'){msg.textContent='No matching Tap to Pay request found. Make sure the register started Tap to Pay (same synced data), then scan again.'; return;}
-      const amt=Number(p.amount||payload.amount||0);
-      const me=d.users.find(x=>x.id===u.id);
-      if(!me || (!me.unlimited && Number(me.balance||0) < amt)){msg.textContent='Insufficient balance on this card.'; return;}
-      if(!me.unlimited) me.balance = Number(me.balance||0) - amt;
-      p.status='paid'; p.paidBy=me.id; p.paidAt=Date.now();
-      d.pendingPayment=p; DT.save(d);
-      msg.textContent='Payment approved for '+DT.fmt(amt)+'. Register can now "Check Payment".';
-      render();
-    };
+    $('confirmPay').onclick=()=>confirmTapPayment(false);
 
     if('serviceWorker' in navigator){ navigator.serviceWorker.register('./sw.js').catch(()=>{}); }
     window.addEventListener('storage',render); window.addEventListener('dt-update',render); window.addEventListener('dt-session',render);
