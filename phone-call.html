@@ -22,13 +22,18 @@
     .avatar.dsm{background:#c8102e}
     .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#1c2030;border:1px solid #2a2f3d;color:#cfd6e6;font-size:.8rem;margin:4px}
     .contact-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)} .contact-row:last-child{border-bottom:0}
+    .incoming{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:50;align-items:center;justify-content:center;padding:20px}
+    .incoming .card{background:#151923;border:1px solid #2a2f3d;border-radius:20px;padding:20px;max-width:360px;width:100%;text-align:center}
   </style>
 </head>
 <body class="app-body">
   <div class="app-shell" style="display:block">
     <header class="app-header">
       <div class="app-brand"><span style="font-weight:900">Phone</span></div>
-      <a class="user-pill-btn" href="phone.html" style="text-decoration:none">Home</a>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="meLabel" class="small"></span>
+        <a class="user-pill-btn" href="phone.html" style="text-decoration:none">Home</a>
+      </div>
     </header>
     <main class="app-main">
       <div id="dialerView">
@@ -41,7 +46,14 @@
             <button class="call-btn call-green" id="dialBtn" title="Call">📞</button>
             <button class="call-btn call-gray" id="clearBtn" title="Clear">C</button>
           </div>
-          <div class="small" style="text-align:center;margin-top:10px">Dial any number to call someone, or call <b>DSMDonalds</b> (1800-DSM / 1800376).</div>
+          <div class="small" style="text-align:center;margin-top:10px">Dial a number/code/name to call. DSMDonalds: <b>1800-DSM</b>. Calling another app user requires both devices to be logged in & synced.</div>
+        </div>
+        <div id="loginPanel" class="panel soft" style="margin-top:12px;display:none">
+          <div class="section-title small-title">Log in (to receive/make user calls)</div>
+          <div class="small">Enter your 4-digit rewards code so others can call you and you can call them over sync.</div>
+          <input id="loginCode" maxlength="8" placeholder="Your code (e.g. 1234)" style="margin-top:8px" />
+          <button class="btn block" id="loginBtn" style="margin-top:8px">Log In</button>
+          <div id="loginMsg" class="small" style="margin-top:6px"></div>
         </div>
         <div class="panel soft" style="margin-top:12px">
           <div class="section-title small-title">Contacts</div>
@@ -49,7 +61,7 @@
           <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
             <div class="small" style="margin-bottom:6px">Add contact</div>
             <input id="newContactName" placeholder="Name" style="margin-bottom:6px" />
-            <input id="newContactNumber" placeholder="Number" />
+            <input id="newContactNumber" placeholder="Number or user code" />
             <button class="btn secondary block" id="addContactBtn" style="margin-top:8px">Add Contact</button>
           </div>
         </div>
@@ -64,12 +76,12 @@
         <div class="panel soft" style="margin-top:14px;text-align:left">
           <div class="section-title small-title" id="callPanelTitle">Call (TTS + STT)</div>
           <div id="callPills"><span class="pill">TTS</span><span class="pill">STT</span></div>
-          <div id="assistantText" style="margin-top:8px;max-height:180px;overflow:auto"></div>
-          <textarea id="orderText" rows="3" placeholder="Say or type a message..." style="width:100%;margin-top:8px;border-radius:10px;border:1px solid #2a2f3d;background:#0f1115;color:#fff;padding:10px"></textarea>
+          <div id="assistantText" style="margin-top:8px;max-height:220px;overflow:auto"></div>
+          <textarea id="msgText" rows="3" placeholder="Say or type a message..." style="width:100%;margin-top:8px;border-radius:10px;border:1px solid #2a2f3d;background:#0f1115;color:#fff;padding:10px"></textarea>
           <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
             <button class="btn secondary" id="sttBtn">🎤 Speak (STT)</button>
             <button class="btn secondary" id="ttsBtn">🔊 Read Aloud (TTS)</button>
-            <button class="btn" id="sendPcBtn">Send</button>
+            <button class="btn" id="sendBtn">Send</button>
           </div>
           <div id="sttStatus" class="small" style="margin-top:8px"></div>
         </div>
@@ -80,119 +92,192 @@
     </main>
   </div>
 
+  <div id="incoming" class="incoming">
+    <div class="card">
+      <div id="inAvatar" class="avatar" style="margin:0 auto 10px">?</div>
+      <div style="font-weight:900;font-size:1.3rem;color:#fff">Incoming call</div>
+      <div id="inName" class="small" style="margin-top:4px"></div>
+      <div class="call-actions" style="margin-top:16px">
+        <button class="call-btn call-red" id="declineBtn" title="Decline">✕</button>
+        <button class="call-btn call-green" id="answerBtn" title="Answer">📞</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/app.js"></script>
   <script>
     const $=id=>document.getElementById(id);
-    let number='', callSeconds=0, timerInt=null, recognition=null, listening=false, heardChat=new Set(), currentCallee=null;
+    let number='', callSeconds=0, timerInt=null, recognition=null, listening=false, heardChat=new Set(), heardP2P=new Set();
+    let currentCallee=null; // {type:'dsm'|'p2p'|'sim', name, number, userId?, callId?}
     const CONTACTS_KEY='dt_phone_contacts_v1';
     const keys=[['1',''],['2','ABC'],['3','DEF'],['4','GHI'],['5','JKL'],['6','MNO'],['7','PQRS'],['8','TUV'],['9','WXYZ'],['*',''],['0','+'],['#','']];
-    function normalizeNum(n){return String(n||'').toLowerCase().replace(/[^a-z0-9+]/g,'');}
-    function isDsm(n){const x=normalizeNum(n); return x==='1800dsm'||x==='1800376'||x==='18000376';}
+    function norm(n){return String(n||'').toLowerCase().replace(/[^a-z0-9+]/g,'');}
+    function isDsm(n){const x=norm(n); return x==='1800dsm'||x==='1800376'||x==='18000376';}
+    function me(){return DT.currentUser();}
+    function meLabel(){const u=me(); $('meLabel').textContent=u?`You: ${u.name} (${u.code})`:'Not logged in'; $('loginPanel').style.display=u?'none':'block';}
     function loadContacts(){try{return JSON.parse(localStorage.getItem(CONTACTS_KEY)||'[]')||[]}catch(e){return []}}
     function saveContacts(c){localStorage.setItem(CONTACTS_KEY,JSON.stringify(c||[]));}
     function getAllContacts(){
       const base=[{name:'DSMDonalds Drive-Thru',number:'1800-DSM',dsm:true}];
       const saved=loadContacts();
-      let users=[]; try{ if(window.DT){ users=(DT.load().users||[]).filter(u=>!isDsm(u.code)&&!isDsm(u.name)).map(u=>({name:u.name||'User',number:String(u.code||u.id||''),userId:u.id})); } }catch(e){}
+      let users=[]; try{ const mu=me(); users=(DT.load().users||[]).filter(u=>!mu||u.id!==mu.id).map(u=>({name:u.name||'User',number:String(u.code||''),userId:u.id,p2p:true})); }catch(e){}
       const map=new Map();
-      [...base,...saved,...users].forEach(c=>{ if(!c||!c.name) return; const key=normalizeNum(c.number||c.name); if(!key) return; if(!map.has(key)) map.set(key,c); });
+      [...base,...saved,...users].forEach(c=>{ if(!c||!c.name) return; const key=(c.userId?'u:'+c.userId:'n:'+norm(c.number||c.name)); if(!map.has(key)) map.set(key,c); });
       return Array.from(map.values());
     }
     function renderContacts(){
       const list=getAllContacts();
-      $('contactsList').innerHTML=list.map(c=>`<div class="contact-row"><div><div style="font-weight:700;color:#fff">${c.name}</div><div class="small">${c.number||''}${c.dsm?' · Restaurant (PC TTS/STT)':''}</div></div><button class="btn secondary" data-call="${encodeURIComponent(c.number||c.name)}" data-name="${encodeURIComponent(c.name)}" data-dsm="${c.dsm?'1':'0'}" style="padding:8px 12px">Call</button></div>`).join('') || '<div class="small">No contacts yet.</div>';
-      document.querySelectorAll('[data-call]').forEach(b=>b.onclick=()=>startCall(decodeURIComponent(b.dataset.call), decodeURIComponent(b.dataset.name), b.dataset.dsm==='1'));
+      $('contactsList').innerHTML=list.map(c=>`<div class="contact-row"><div><div style="font-weight:700;color:#fff">${c.name}</div><div class="small">${c.number||''}${c.dsm?' · Restaurant (PC TTS/STT)':(c.userId?' · App user (sync call)':'')}</div></div><button class="btn secondary" data-call="${encodeURIComponent(c.number||c.name)}" data-name="${encodeURIComponent(c.name)}" data-dsm="${c.dsm?'1':'0'}" data-uid="${c.userId||''}" style="padding:8px 12px">Call</button></div>`).join('') || '<div class="small">No contacts yet.</div>';
+      document.querySelectorAll('[data-call]').forEach(b=>b.onclick=()=>startCall(decodeURIComponent(b.dataset.call), decodeURIComponent(b.dataset.name), b.dataset.dsm==='1', b.dataset.uid||null));
     }
-    $('addContactBtn').onclick=()=>{
-      const name=($('newContactName').value||'').trim(); const num=($('newContactNumber').value||'').trim();
-      if(!name||!num){ alert('Enter name and number'); return; }
-      const c=loadContacts(); c.unshift({name,number:num}); saveContacts(c); $('newContactName').value=''; $('newContactNumber').value=''; renderContacts();
-    };
+    $('addContactBtn').onclick=()=>{ const name=($('newContactName').value||'').trim(); const num=($('newContactNumber').value||'').trim(); if(!name||!num){alert('Enter name and number');return;} const c=loadContacts(); c.unshift({name,number:num}); saveContacts(c); $('newContactName').value=''; $('newContactNumber').value=''; renderContacts(); };
     function renderNumber(){$('numberDisplay').textContent=number||' '; }
     keys.forEach(k=>{const b=document.createElement('button'); b.className='key'; b.innerHTML=k[0]+(k[1]?`<small>${k[1]}</small>`:''); b.onclick=()=>{number+=k[0]; renderNumber();}; $('keypad').appendChild(b);});
     $('backspace').onclick=()=>{number=number.slice(0,-1); renderNumber();};
     $('clearBtn').onclick=()=>{number=''; renderNumber();};
     const params=new URLSearchParams(location.search); if(params.get('number')) number=params.get('number'); renderNumber();
 
-    function speak(text){ if(!('speechSynthesis' in window)) return; window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=1; window.speechSynthesis.speak(u); }
-    function renderChat(){
-      if(!currentCallee || !currentCallee.dsm) return;
+    function speak(text){ if(!('speechSynthesis' in window)||!text) return; window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=1; window.speechSynthesis.speak(u); }
+    function appendMsg(who,text){ const box=$('assistantText'); const div=document.createElement('div'); div.style.marginTop='6px'; div.innerHTML=`<b>${who}</b>: ${String(text||'').replace(/</g,'&lt;')}`; box.appendChild(div); box.scrollTop=box.scrollHeight; }
+
+    function renderDsmChat(){
+      if(!currentCallee || currentCallee.type!=='dsm') return;
       const d=DT.load(); const chat=(d.driveThruChat||[]).slice().sort((a,b)=>a.at-b.at);
-      const box=$('assistantText');
-      box.innerHTML = chat.map(m=>`<div style="margin-top:6px"><b>${m.from==='pc'?'DSMDonalds (PC)':'You'}</b>: ${(m.text||'').replace(/</g,'&lt;')}</div>`).join('') || '<div class="small">Connected.</div>';
+      const box=$('assistantText'); box.innerHTML='';
+      chat.forEach(m=>appendMsg(m.from==='pc'?'DSMDonalds (PC)':'You', m.text));
       chat.forEach(m=>{ if(m.from==='pc' && !heardChat.has(m.id)){ heardChat.add(m.id); if($('inCallView').style.display!=='none'){ speak(m.text); $('sttStatus').textContent='PC: '+m.text; } } });
-      box.scrollTop=box.scrollHeight;
     }
-    function appendLocal(who,text){ const box=$('assistantText'); const div=document.createElement('div'); div.style.marginTop='6px'; div.innerHTML=`<b>${who}</b>: ${String(text).replace(/</g,'&lt;')}`; box.appendChild(div); box.scrollTop=box.scrollHeight; }
-    function startCall(num, name, dsmFlag){
+    function renderP2P(){
+      if(!currentCallee || currentCallee.type!=='p2p' || !currentCallee.callId) return;
+      const d=DT.load(); const call=(d.phoneCalls||[]).find(c=>c.id===currentCallee.callId);
+      if(!call){ $('callState').textContent='Call ended'; return; }
+      if(call.status==='declined'){ $('callState').textContent='Declined'; return; }
+      if(call.status==='ended'){ $('callState').textContent='Call ended'; return; }
+      if(call.status==='active'){ $('callState').textContent='Connected'; }
+      if(call.status==='ringing'){ $('callState').textContent='Ringing...'; }
+      const mu=me(); const box=$('assistantText'); box.innerHTML='';
+      (call.messages||[]).forEach(m=>{ const mine=mu&&m.fromId===mu.id; appendMsg(mine?'You':(m.fromName||'Them'), m.text); });
+      (call.messages||[]).forEach(m=>{ const mine=mu&&m.fromId===mu.id; if(!mine && !heardP2P.has(m.id)){ heardP2P.add(m.id); if($('inCallView').style.display!=='none'){ speak(m.text); $('sttStatus').textContent=(m.fromName||'Them')+': '+m.text; } } });
+    }
+
+    function findUserMatch(num,name){
+      const d=DT.load(); const mu=me(); const n=norm(num), nm=String(name||'').toLowerCase();
+      return (d.users||[]).find(u=>{ if(mu&&u.id===mu.id) return false; return norm(u.code)===n || (nm && String(u.name||'').toLowerCase()===nm) || String(u.id)===String(num); });
+    }
+
+    function startCall(num, name, dsmFlag, userId){
       const calleeName=name || (isDsm(num)?'DSMDonalds Drive-Thru':(num||'Unknown'));
       const dsm = dsmFlag!=null ? !!dsmFlag : isDsm(num) || /dsm/i.test(calleeName);
-      currentCallee={number:num||calleeName,name:calleeName,dsm};
-      heardChat=new Set();
+      let targetUser = userId ? (DT.load().users||[]).find(u=>u.id===userId) : findUserMatch(num, calleeName);
+      const mu=me();
+      let type='sim';
+      if(dsm) type='dsm'; else if(targetUser) type='p2p';
+      currentCallee={type,name:calleeName,number:num||calleeName,userId:targetUser?targetUser.id:null,callId:null};
+      heardChat=new Set(); heardP2P=new Set();
       $('dialerView').style.display='none'; $('inCallView').style.display='block';
-      $('callName').textContent=calleeName; $('callNumberLabel').textContent=num||''; $('assistantText').innerHTML=''; $('orderText').value='';
+      $('callName').textContent=calleeName; $('callNumberLabel').textContent=targetUser?`Code ${targetUser.code}`:(num||''); $('assistantText').innerHTML=''; $('msgText').value='';
       $('callAvatar').textContent=(calleeName.trim()[0]||'?').toUpperCase(); $('callAvatar').className='avatar'+(dsm?' dsm':'');
-      $('callPanelTitle').textContent=dsm?'Live Call with DSMDonalds (TTS + STT + PC back-and-forth)':'Call (TTS + STT)';
-      $('callPills').innerHTML=dsm?'<span class="pill">TTS</span><span class="pill">STT</span><span class="pill">PC back-and-forth</span>':'<span class="pill">TTS</span><span class="pill">STT</span><span class="pill">Simulated</span>';
-      $('sendPcBtn').textContent=dsm?'Send to PC':'Send';
-      $('callState').textContent='Calling...';
-      setTimeout(()=>{
-        $('callState').textContent='Connected';
-        callSeconds=0; $('callTimer').textContent='00:00';
+      $('callPanelTitle').textContent=dsm?'Live Call with DSMDonalds (TTS + STT + PC)':'Call (TTS + STT)';
+      $('sendBtn').textContent=dsm?'Send to PC':'Send'; $('callState').textContent='Calling...';
+
+      setTimeout(async()=>{
+        callSeconds=0; $('callTimer').textContent='00:00'; if(timerInt) clearInterval(timerInt);
         timerInt=setInterval(()=>{callSeconds++; const m=String(Math.floor(callSeconds/60)).padStart(2,'0'); const s=String(callSeconds%60).padStart(2,'0'); $('callTimer').textContent=m+':'+s;},1000);
-        if(dsm){
+        if(type==='dsm'){
+          $('callState').textContent='Connected';
           const greet='Thank you for calling D S M Donalds. What would you like to order?';
-          const d=DT.load(); d.driveThruChat=d.driveThruChat||[]; d.driveThruChat.push({id:DT.uid(),at:Date.now(),from:'pc',text:greet}); DT.save(d);
-          renderChat();
+          const d=DT.load(); d.driveThruChat=d.driveThruChat||[]; d.driveThruChat.push({id:DT.uid(),at:Date.now(),from:'pc',text:greet}); DT.save(d); renderDsmChat();
+        } else if(type==='p2p'){
+          if(!mu){ $('callState').textContent='Log in required'; appendMsg('System','Log in with your rewards code to make user-to-user calls.'); return; }
+          $('callPills').innerHTML='<span class="pill">TTS</span><span class="pill">STT</span><span class="pill">Sync user call</span>';
+          if(DT.getSync()) await DT.pullSync(true);
+          const d=DT.load(); d.phoneCalls=d.phoneCalls||[];
+          const call={id:'C'+DT.uid(),fromId:mu.id,fromName:mu.name,toId:targetUser.id,toName:targetUser.name,status:'ringing',at:Date.now(),updatedAt:Date.now(),messages:[]};
+          d.phoneCalls.unshift(call); if(d.phoneCalls.length>50) d.phoneCalls=d.phoneCalls.slice(0,50);
+          DT.save(d); currentCallee.callId=call.id; $('callState').textContent='Ringing... (waiting for them to answer)';
+          renderP2P();
         } else {
-          const greet=`Hi, this is ${calleeName}.`;
-          appendLocal(calleeName,greet); speak(greet);
-          $('sttStatus').textContent='Connected. Speak or type a message.';
+          $('callState').textContent='Connected';
+          const greet=`Hi, this is ${calleeName}.`; appendMsg(calleeName,greet); speak(greet);
+          $('sttStatus').textContent='Simulated call. Speak or type a message.';
         }
-      }, 1200);
+      }, 900);
     }
-    function endCall(){ if(timerInt) clearInterval(timerInt); timerInt=null; if(listening&&recognition){try{recognition.stop();}catch(e){}} $('inCallView').style.display='none'; $('dialerView').style.display='block'; $('callState').textContent='Call ended'; speak('Call ended.'); currentCallee=null; }
-    $('dialBtn').onclick=()=>{ if(!String(number||'').trim()){alert('Enter a number'); return;} startCall(number, null, null); };
+
+    function endCall(){
+      if(timerInt) clearInterval(timerInt); timerInt=null; if(listening&&recognition){try{recognition.stop();}catch(e){}}
+      if(currentCallee && currentCallee.type==='p2p' && currentCallee.callId){ const d=DT.load(); const c=(d.phoneCalls||[]).find(x=>x.id===currentCallee.callId); if(c && c.status!=='ended'){ c.status='ended'; c.updatedAt=Date.now(); DT.save(d);} }
+      $('inCallView').style.display='none'; $('dialerView').style.display='block'; speak('Call ended.'); currentCallee=null; $('incoming').style.display='none';
+    }
+    $('dialBtn').onclick=()=>{ if(!String(number||'').trim()){alert('Enter a number or code'); return;} startCall(number, null, null, null); };
     $('hangupBtn').onclick=endCall;
 
-    $('ttsBtn').onclick=()=>{ const t=($('orderText').value||'').trim() || 'No message.'; speak(t); };
-    function pushPhoneMessage(msg){
-      const u=DT.currentUser?DT.currentUser():null; const d=DT.load();
-      d.driveThruChat=d.driveThruChat||[]; d.driveThruChat.push({id:DT.uid(),at:Date.now(),from:'phone',text:msg}); if(d.driveThruChat.length>100) d.driveThruChat=d.driveThruChat.slice(-100);
-      d.driveThruCalls=d.driveThruCalls||[]; d.driveThruCalls.unshift({id:DT.uid(),at:Date.now(),userId:u?u.id:null,userName:u?u.name:'Phone Caller',code:u?u.code:null,message:msg,orderText:msg,status:'received',source:'phone-call'}); if(d.driveThruCalls.length>50) d.driveThruCalls=d.driveThruCalls.slice(0,50);
-      DT.save(d);
-    }
-    $('sendPcBtn').onclick=()=>{
-      const msg=($('orderText').value||'').trim(); if(!msg){$('sttStatus').textContent='No message to send.'; return;}
-      if(currentCallee && currentCallee.dsm){
-        pushPhoneMessage(msg);
-        $('sttStatus').textContent='Sent to PC. Waiting for response (will speak back)...';
-      } else {
-        appendLocal('You', msg);
-        $('sttStatus').textContent='Sent.';
-        const reply = `Got it: ${msg}`;
-        setTimeout(()=>{ if($('inCallView').style.display==='none') return; appendLocal(currentCallee?currentCallee.name:'Caller', reply); speak(reply); }, 900);
-      }
-      $('orderText').value='';
+    $('loginBtn').onclick=async()=>{
+      const code=($('loginCode').value||'').trim(); if(!code) return;
+      if(DT.getSync()) await DT.pullSync(true);
+      const u=DT.getUserByCode(code);
+      if(!u){$('loginMsg').textContent='No user found for that code.'; return;}
+      DT.setSession({userId:u.id}); $('loginMsg').textContent='Logged in.'; meLabel(); renderContacts();
     };
+
+    $('ttsBtn').onclick=()=>{ const t=($('msgText').value||'').trim() || 'No message.'; speak(t); };
+    $('sendBtn').onclick=async()=>{
+      const msg=($('msgText').value||'').trim(); if(!msg){$('sttStatus').textContent='No message.'; return;}
+      if(currentCallee && currentCallee.type==='dsm'){
+        const mu=me(); const d=DT.load(); d.driveThruChat=d.driveThruChat||[]; d.driveThruChat.push({id:DT.uid(),at:Date.now(),from:'phone',text:msg}); if(d.driveThruChat.length>100) d.driveThruChat=d.driveThruChat.slice(-100);
+        d.driveThruCalls=d.driveThruCalls||[]; d.driveThruCalls.unshift({id:DT.uid(),at:Date.now(),userId:mu?mu.id:null,userName:mu?mu.name:'Phone Caller',code:mu?mu.code:null,message:msg,orderText:msg,status:'received',source:'phone-call'}); if(d.driveThruCalls.length>50) d.driveThruCalls=d.driveThruCalls.slice(0,50); DT.save(d);
+        $('sttStatus').textContent='Sent to PC. Waiting for response...';
+      } else if(currentCallee && currentCallee.type==='p2p' && currentCallee.callId){
+        const mu=me(); if(!mu){$('sttStatus').textContent='Log in required.'; return;}
+        const d=DT.load(); const c=(d.phoneCalls||[]).find(x=>x.id===currentCallee.callId); if(!c){$('sttStatus').textContent='Call not found.'; return;}
+        c.messages=c.messages||[]; c.messages.push({id:DT.uid(),fromId:mu.id,fromName:mu.name,text:msg,at:Date.now()}); c.updatedAt=Date.now(); if(c.status==='ringing') c.status='active'; DT.save(d); renderP2P();
+        $('sttStatus').textContent='Sent over sync.';
+      } else {
+        appendMsg('You', msg); const reply=`Got it: ${msg}`; setTimeout(()=>{ if(!currentCallee||currentCallee.type!=='sim')return; appendMsg(currentCallee.name, reply); speak(reply); }, 800);
+      }
+      $('msgText').value='';
+    };
+
     function setupStt(){
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ $('sttStatus').textContent='Speech recognition (STT) not supported in this browser.'; $('sttBtn').disabled=true; return null; }
       const r=new SR(); r.lang='en-US'; r.interimResults=true; r.continuous=false;
-      r.onresult=(e)=>{ let final='', interim=''; for(let i=e.resultIndex;i<e.results.length;i++){ const t=e.results[i][0].transcript; if(e.results[i].isFinal) final+=t; else interim+=t; } if(final){ $('orderText').value = ($('orderText').value?$('orderText').value+' ':'') + final.trim(); $('sttStatus').textContent='Captured speech.'; } else { $('sttStatus').textContent='Listening: '+interim; } };
+      r.onresult=(e)=>{ let final='', interim=''; for(let i=e.resultIndex;i<e.results.length;i++){ const t=e.results[i][0].transcript; if(e.results[i].isFinal) final+=t; else interim+=t; } if(final){ $('msgText').value = ($('msgText').value?$('msgText').value+' ':'') + final.trim(); $('sttStatus').textContent='Captured speech.'; } else { $('sttStatus').textContent='Listening: '+interim; } };
       r.onerror=(e)=>{ $('sttStatus').textContent='STT error: '+e.error; listening=false; $('sttBtn').textContent='🎤 Speak (STT)'; };
       r.onend=()=>{ listening=false; $('sttBtn').textContent='🎤 Speak (STT)'; };
       return r;
     }
     recognition=setupStt();
-    $('sttBtn').onclick=()=>{
-      if(!recognition){ $('sttStatus').textContent='Speech recognition not available.'; return; }
-      if(listening){ try{recognition.stop();}catch(e){} listening=false; $('sttBtn').textContent='🎤 Speak (STT)'; return; }
-      try{ recognition.start(); listening=true; $('sttBtn').textContent='⏹ Stop Listening'; $('sttStatus').textContent='Listening... speak now.'; }catch(e){ $('sttStatus').textContent='Could not start microphone/STT.'; }
-    };
+    $('sttBtn').onclick=()=>{ if(!recognition){$('sttStatus').textContent='Speech recognition not available.';return;} if(listening){try{recognition.stop();}catch(e){} listening=false; $('sttBtn').textContent='🎤 Speak (STT)'; return;} try{recognition.start(); listening=true; $('sttBtn').textContent='⏹ Stop Listening'; $('sttStatus').textContent='Listening...';}catch(e){$('sttStatus').textContent='Could not start microphone/STT.';} };
 
-    window.addEventListener('dt-update',()=>{renderContacts(); renderChat();}); window.addEventListener('storage',()=>{renderContacts(); renderChat();});
-    setInterval(()=>{ if(window.DT && DT.getSync()) DT.pullSync(false); renderChat(); }, 2500);
-    renderContacts();
+    function checkIncoming(){
+      const mu=me(); if(!mu) { $('incoming').style.display='none'; return; }
+      const d=DT.load(); const calls=d.phoneCalls||[];
+      // if already in that call, ignore
+      const incoming=calls.find(c=>c.toId===mu.id && c.status==='ringing' && (!currentCallee || currentCallee.callId!==c.id));
+      if(incoming && $('inCallView').style.display==='none'){ $('incoming').style.display='flex'; $('inName').textContent=`${incoming.fromName||'Someone'} is calling you`; $('inAvatar').textContent=(incoming.fromName||'?')[0].toUpperCase(); $('incoming').dataset.callId=incoming.id; }
+      else if(!incoming && $('incoming').style.display==='flex'){ $('incoming').style.display='none'; }
+      // if active call we joined/started got updated
+      if(currentCallee && currentCallee.type==='p2p' && currentCallee.callId){ renderP2P(); }
+    }
+    $('answerBtn').onclick=()=>{
+      const callId=$('incoming').dataset.callId; if(!callId) return; const mu=me(); if(!mu) return;
+      const d=DT.load(); const c=(d.phoneCalls||[]).find(x=>x.id===callId); if(!c) return;
+      c.status='active'; c.updatedAt=Date.now(); DT.save(d);
+      $('incoming').style.display='none';
+      currentCallee={type:'p2p',name:c.fromName||'Caller',number:'',userId:c.fromId,callId:c.id}; heardP2P=new Set();
+      $('dialerView').style.display='none'; $('inCallView').style.display='block';
+      $('callName').textContent=currentCallee.name; $('callNumberLabel').textContent='User-to-user call (sync)'; $('assistantText').innerHTML='';
+      $('callAvatar').textContent=(currentCallee.name[0]||'?').toUpperCase(); $('callAvatar').className='avatar';
+      $('callPills').innerHTML='<span class="pill">TTS</span><span class="pill">STT</span><span class="pill">Sync user call</span>'; $('sendBtn').textContent='Send';
+      $('callState').textContent='Connected'; callSeconds=0; $('callTimer').textContent='00:00'; if(timerInt) clearInterval(timerInt); timerInt=setInterval(()=>{callSeconds++; const m=String(Math.floor(callSeconds/60)).padStart(2,'0'); const s=String(callSeconds%60).padStart(2,'0'); $('callTimer').textContent=m+':'+s;},1000);
+      renderP2P();
+    };
+    $('declineBtn').onclick=()=>{ const callId=$('incoming').dataset.callId; if(!callId){$('incoming').style.display='none';return;} const d=DT.load(); const c=(d.phoneCalls||[]).find(x=>x.id===callId); if(c){c.status='declined'; c.updatedAt=Date.now(); DT.save(d);} $('incoming').style.display='none'; };
+
+    window.addEventListener('dt-update',()=>{meLabel(); renderContacts(); renderDsmChat(); renderP2P(); checkIncoming();});
+    window.addEventListener('storage',()=>{meLabel(); renderContacts(); renderDsmChat(); renderP2P(); checkIncoming();});
+    setInterval(()=>{ if(window.DT && DT.getSync()) DT.pullSync(false); renderDsmChat(); renderP2P(); checkIncoming(); }, 2500);
+    meLabel(); renderContacts();
     if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
   </script>
 </body>
