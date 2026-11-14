@@ -1,5 +1,5 @@
-const CACHE='dsmd-v23';
-const ASSETS=['./','./index.html','./menu.html','./drive-thru.html','./phone.html','./phone-call.html','./maps.html','./delivery.html','./admin.html','./cash.html','./dsmdonalds.html','./css/styles.css','./js/app.js','./manifest.webmanifest','./assets/icon.svg'];
+const CACHE='dsmd-v24';
+const ASSETS=['./','./index.html','./menu.html','./register.html','./drive-thru.html','./phone.html','./phone-call.html','./maps.html','./delivery.html','./admin.html','./cash.html','./dsmdonalds.html','./css/styles.css','./js/app.js','./manifest.webmanifest','./assets/icon.svg'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{
