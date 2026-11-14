@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Cash App" />
+  <meta name="theme-color" content="#00D632" />
+  <title>Cash App</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="assets/icon.svg" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    body.cash-body{background:#000;color:#fff;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .cash-wrap{max-width:480px;margin:0 auto;min-height:100vh;background:#000;padding-bottom:24px}
+    .cash-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px}
+    .cash-logo{font-weight:900;font-size:1.4rem;color:#00D632;letter-spacing:-.5px}
+    .cash-back{color:#fff;text-decoration:none;font-weight:700;background:#1c1c1e;padding:8px 12px;border-radius:999px}
+    .cash-main{padding:10px 16px 24px}
+    .cash-balance-big{font-size:3rem;font-weight:900;text-align:center;margin:18px 0 4px}
+    .cash-sub{text-align:center;color:#a1a1aa;font-weight:700;margin-bottom:18px}
+    .cash-row{display:flex;gap:12px;margin:18px 0}
+    .cash-action{flex:1;background:#1c1c1e;border:1px solid #2c2c2e;color:#fff;border-radius:16px;padding:14px 10px;font-weight:800;cursor:pointer;font-size:1rem}
+    .cash-action.primary{background:#00D632;color:#000;border-color:#00D632}
+    .cash-section{margin-top:18px}
+    .cash-section h3{margin:0 0 10px;font-size:1rem;color:#fff}
+    .cash-card-ui{background:linear-gradient(135deg,#111,#2f2f2f);border-radius:20px;padding:18px;min-height:170px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid #333}
+    .cash-card-ui .brand{color:#00D632;font-weight:900;font-size:1.1rem}
+    .cash-card-ui .num{font-size:1.2rem;letter-spacing:2px;margin:20px 0}
+    .cash-card-ui .name{font-weight:700;color:#ddd}
+    .cash-list{background:#1c1c1e;border-radius:16px;overflow:hidden;border:1px solid #2c2c2e}
+    .cash-item{display:flex;justify-content:space-between;align-items:center;padding:14px 14px;border-bottom:1px solid #2c2c2e}
+    .cash-item:last-child{border-bottom:0}
+    .cash-item .t{font-weight:700}.cash-item .s{color:#a1a1aa;font-size:.85rem;margin-top:2px}
+    .cash-amt.pos{color:#00D632;font-weight:800}.cash-amt.neg{color:#fff;font-weight:800}
+    .cash-login{padding:24px 16px}
+    .cash-box{background:#1c1c1e;border:1px solid #2c2c2e;border-radius:20px;padding:18px}
+    .cash-input{width:100%;background:#000;border:1px solid #333;color:#fff;border-radius:12px;padding:12px;font:inherit;margin-top:6px}
+    .cash-label{color:#a1a1aa;font-size:.9rem;font-weight:700;display:block;margin-top:10px}
+    .cash-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:50}
+    .cash-modal.open{display:flex}
+    .cash-sheet{width:100%;max-width:480px;background:#1c1c1e;border-radius:22px 22px 0 0;padding:18px;border:1px solid #2c2c2e;border-bottom:0}
+    .cash-sheet h3{margin:0 0 8px}
+    .cash-small{color:#a1a1aa;font-size:.9rem}
+  </style>
+</head>
+<body class="cash-body">
+  <div class="cash-wrap">
+    <div class="cash-header">
+      <div class="cash-logo">$ Cash App</div>
+      <a class="cash-back" href="phone.html">Phone</a>
+    </div>
+
+    <div id="cashAuth" class="cash-login">
+      <div class="cash-box">
+        <h2 style="margin:0 0 6px">Sign in</h2>
+        <div class="cash-small">Use your DSM rewards code to access your Cash App balance.</div>
+        <label class="cash-label">Rewards Code</label>
+        <input class="cash-input" id="loginCode" maxlength="4" inputmode="numeric" placeholder="1234" />
+        <button class="cash-action primary" id="loginBtn" style="width:100%;margin-top:14px">Continue</button>
+        <div id="authMsg" class="cash-small" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <div id="cashApp" class="cash-main" style="display:none">
+      <div class="cash-balance-big" id="balance">$0.00</div>
+      <div class="cash-sub" id="cashtag">$guest</div>
+      <div class="cash-row">
+        <button class="cash-action" id="addBtn">Add Cash</button>
+        <button class="cash-action primary" id="payBtn">Pay</button>
+        <button class="cash-action" id="reqBtn">Request</button>
+      </div>
+
+      <div class="cash-section">
+        <h3>Cash Card</h3>
+        <div class="cash-card-ui">
+          <div class="brand">Cash Card</div>
+          <div class="num" id="cardNum">•••• •••• •••• 0000</div>
+          <div class="name" id="cardName">Guest</div>
+        </div>
+      </div>
+
+      <div class="cash-section">
+        <h3>Activity</h3>
+        <div class="cash-list" id="activity"></div>
+      </div>
+      <div class="cash-small" style="margin-top:14px">Signed in as <span id="who"></span> · <a href="phone.html" style="color:#00D632">Back to Phone</a></div>
+    </div>
+  </div>
+
+  <div class="cash-modal" id="modal"><div class="cash-sheet">
+    <h3 id="mTitle">Pay</h3>
+    <div class="cash-small" id="mHelp"></div>
+    <label class="cash-label" id="mToLabel">To (code or name)</label>
+    <input class="cash-input" id="mTo" placeholder="2598 or Dylan" />
+    <label class="cash-label">Amount ($)</label>
+    <input class="cash-input" id="mAmt" type="number" step="0.01" placeholder="10.00" />
+    <label class="cash-label">For</label>
+    <input class="cash-input" id="mNote" placeholder="Note" />
+    <div class="cash-row" style="margin-top:14px"><button class="cash-action" id="mCancel">Cancel</button><button class="cash-action primary" id="mOk">Continue</button></div>
+    <div id="mMsg" class="cash-small" style="margin-top:8px"></div>
+  </div></div>
+
+  <script src="js/app.js"></script>
+  <script>
+    const $=id=>document.getElementById(id);
+    let mode='pay';
+    function tag(u){return '$'+(u&&u.code?u.code:(u&&u.name?u.name.replace(/[^a-z0-9]/ig,'').toLowerCase():'user'))}
+    function showAuth(show){$('cashAuth').style.display=show?'block':'none'; $('cashApp').style.display=show?'none':'block';}
+    async function refreshIf(){ if(DT.getSync()) await DT.pullSync(true); }
+    function render(){
+      const u=DT.currentUser();
+      if(!u){showAuth(true); return;} showAuth(false);
+      $('balance').textContent = u.unlimited?'Unlimited':DT.fmt(u.balance||0);
+      $('cashtag').textContent = tag(u);
+      $('cardNum').textContent = '•••• •••• •••• '+(u.cardLast4||String(u.code||'0000').padStart(4,'0'));
+      $('cardName').textContent = u.name||'Guest';
+      $('who').textContent = u.name+' ('+u.code+')';
+      const d=DT.load(); const acts=(d.transactions||[]).filter(t=>t.from===u.id||t.to===u.id).slice(0,30);
+      $('activity').innerHTML = acts.length ? acts.map(t=>{
+        const incoming=t.to===u.id; const otherId=incoming?t.from:t.to; const other=d.users.find(x=>x.id===otherId);
+        const label=t.type==='add'?'Added cash':(incoming?('From '+(other?other.name:'Someone')):('To '+(other?other.name:'Someone')));
+        const sign=incoming?'+':'-';
+        return `<div class="cash-item"><div><div class="t">${label}</div><div class="s">${new Date(t.at).toLocaleString()}${t.note?' · '+t.note:''}</div></div><div class="cash-amt ${incoming?'pos':'neg'}">${sign}${DT.fmt(t.amount||0)}</div></div>`;
+      }).join('') : '<div class="cash-item"><div class="s">No activity yet</div></div>';
+    }
+    $('loginBtn').onclick=async()=>{ await refreshIf(); const u=DT.getUserByCode($('loginCode').value.trim()); if(!u){$('authMsg').textContent='Account not found.'; return;} DT.setSession({userId:u.id}); $('authMsg').textContent=''; render(); };
+    function openModal(m){ mode=m; $('modal').classList.add('open'); $('mMsg').textContent=''; $('mTo').value=''; $('mAmt').value=''; $('mNote').value='';
+      if(m==='add'){ $('mTitle').textContent='Add Cash'; $('mHelp').textContent='Add money to your balance.'; $('mToLabel').style.display='none'; $('mTo').style.display='none'; }
+      else if(m==='pay'){ $('mTitle').textContent='Pay'; $('mHelp').textContent='Send money to another user by rewards code or name.'; $('mToLabel').style.display='block'; $('mTo').style.display='block'; $('mToLabel').textContent='To (code or name)'; }
+      else { $('mTitle').textContent='Request'; $('mHelp').textContent='Request money from another user by rewards code or name.'; $('mToLabel').style.display='block'; $('mTo').style.display='block'; $('mToLabel').textContent='From (code or name)'; }
+    }
+    function closeModal(){ $('modal').classList.remove('open'); }
+    $('addBtn').onclick=()=>openModal('add'); $('payBtn').onclick=()=>openModal('pay'); $('reqBtn').onclick=()=>openModal('request');
+    $('mCancel').onclick=closeModal; $('modal').onclick=e=>{if(e.target===$('modal')) closeModal();};
+    $('mOk').onclick=async()=>{
+      const u=DT.currentUser(); if(!u) return; const amt=parseFloat($('mAmt').value||'0'); const note=$('mNote').value.trim(); if(!(amt>0)){$('mMsg').textContent='Enter a valid amount.'; return;}
+      await refreshIf(); const d=DT.load(); const me=d.users.find(x=>x.id===u.id); if(!me) return;
+      if(mode==='add'){
+        if(!me.unlimited) me.balance=Number(me.balance||0)+amt;
+        d.transactions=d.transactions||[]; d.transactions.unshift({id:DT.uid(),type:'add',to:me.id,from:null,amount:amt,at:Date.now(),note:note||'Added cash'});
+        DT.save(d); closeModal(); render(); return;
+      }
+      const target=$('mTo').value.trim(); const other=d.users.find(x=>String(x.code)===target || x.name.toLowerCase()===target.toLowerCase());
+      if(!other){$('mMsg').textContent='User not found.'; return;} if(other.id===me.id){$('mMsg').textContent='Choose someone else.'; return;}
+      if(mode==='pay'){
+        if(!me.unlimited && Number(me.balance||0)<amt){$('mMsg').textContent='Insufficient balance.'; return;}
+        if(!me.unlimited) me.balance-=amt; if(!other.unlimited) other.balance=Number(other.balance||0)+amt;
+        d.transactions=d.transactions||[]; d.transactions.unshift({id:DT.uid(),type:'send',from:me.id,to:other.id,amount:amt,at:Date.now(),note});
+      } else {
+        if(!other.unlimited && Number(other.balance||0)<amt){$('mMsg').textContent='They have insufficient balance.'; return;}
+        if(!other.unlimited) other.balance-=amt; if(!me.unlimited) me.balance=Number(me.balance||0)+amt;
+        d.transactions=d.transactions||[]; d.transactions.unshift({id:DT.uid(),type:'request',from:other.id,to:me.id,amount:amt,at:Date.now(),note});
+      }
+      DT.save(d); closeModal(); render();
+    };
+    window.addEventListener('dt-update',render); window.addEventListener('storage',render); window.addEventListener('dt-session',render);
+    render();
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+  </script>
+</body>
+</html>
