@@ -1,9 +1,14 @@
 (function(){
   const KEY='dt_app_v1';
+  const SYNC_KEY='dt_sync_v1';
+  const SESSION_KEY='dt_session_v1';
+  let applyingRemote=false, syncTimer=null, pushing=false;
+
   function uid(){return Math.random().toString(36).slice(2,10)}
   function now(){return Date.now()}
-  function seed(){
-    const s={
+  function defaultData(){
+    return {
+      _v:1, _ts:Date.now(),
       menu:[
         {id:uid(),name:'Big Burger',category:'Food',price:5.99,img:'https://images.unsplash.com/photo-1550547660-d9450f859349?w=400&q=60'},
         {id:uid(),name:'Chicken Nuggets',category:'Food',price:4.49,img:'https://images.unsplash.com/photo-1562967914-608f82629710?w=400&q=60'},
@@ -18,10 +23,23 @@
       offers:[{id:uid(),title:'Free Fries',cost:200,desc:'Redeem 200 pts for a free fries'}],
       pendingPayment:null
     };
-    localStorage.setItem(KEY,JSON.stringify(s)); return s;
   }
-  function load(){try{const r=localStorage.getItem(KEY); if(!r) return seed(); const d=JSON.parse(r); if(!d.menu) return seed(); d.users=d.users||[]; d.offers=d.offers||[]; d.rewards=d.rewards||{pointsPerDollar:10,redeemCost:200,redeemReward:'Free Fries'}; return d;}catch(e){return seed();}}
-  function save(d){localStorage.setItem(KEY,JSON.stringify(d)); window.dispatchEvent(new Event('dt-update'))}
+  function seed(){const s=defaultData(); localStorage.setItem(KEY,JSON.stringify(s)); return s;}
+  function normalize(d){
+    if(!d||typeof d!=='object') return seed();
+    d.menu=Array.isArray(d.menu)?d.menu:[]; d.users=Array.isArray(d.users)?d.users:[]; d.offers=Array.isArray(d.offers)?d.offers:[];
+    d.rewards=d.rewards||{pointsPerDollar:10,redeemCost:200,redeemReward:'Free Fries'};
+    if(typeof d._ts!=='number') d._ts=Date.now();
+    if(!d.menu.length && !d.users.length){ return Object.assign(d, defaultData(), {_ts:d._ts||Date.now()}); }
+    return d;
+  }
+  function load(){try{const r=localStorage.getItem(KEY); if(!r) return seed(); return normalize(JSON.parse(r));}catch(e){return seed();}}
+  function save(d, opts){
+    opts=opts||{}; d=normalize(d); if(!opts.keepTs) d._ts=Date.now();
+    localStorage.setItem(KEY,JSON.stringify(d));
+    window.dispatchEvent(new Event('dt-update'));
+    if(!opts.remote && !applyingRemote) pushSync();
+  }
   function getUserByCode(code){const d=load(); return d.users.find(u=>String(u.code)===String(code))}
   function getUserById(id){const d=load(); return d.users.find(u=>u.id===id)}
   function upsertUser(user){const d=load(); const i=d.users.findIndex(u=>u.id===user.id); if(i>=0)d.users[i]=user; else d.users.push(user); save(d); return user}
@@ -29,7 +47,73 @@
   function setPendingPayment(p){const d=load(); d.pendingPayment=p; save(d)}
   function clearPendingPayment(){const d=load(); d.pendingPayment=null; save(d)}
   function fmt(n){return '$'+Number(n||0).toFixed(2)}
-  function genCode(){return String(Math.floor(1000+Math.random()*9000))}
+  function genCode(){
+    const d=load(); let c,tries=0; do{c=String(Math.floor(1000+Math.random()*9000)); tries++;}while(d.users.some(u=>String(u.code)===c) && tries<50); return c;
+  }
   function makeQRUrl(text,size){size=size||220; return 'https://api.qrserver.com/v1/create-qr-code/?size='+size+'x'+size+'&data='+encodeURIComponent(text)}
-  window.DT={KEY,load,save,uid,now,fmt,genCode,makeQRUrl,getUserByCode,getUserById,upsertUser,addMenuItem,setPendingPayment,clearPendingPayment,seed};
+
+  function getSession(){try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch(e){return null}}
+  function setSession(s){if(s) localStorage.setItem(SESSION_KEY,JSON.stringify(s)); else localStorage.removeItem(SESSION_KEY); window.dispatchEvent(new Event('dt-session'))}
+  function currentUser(){const s=getSession(); return s&&s.userId?getUserById(s.userId):null}
+  function logout(){setSession(null)}
+
+  function getSync(){try{return JSON.parse(localStorage.getItem(SYNC_KEY)||'null')}catch(e){return null}}
+  function setSyncCfg(cfg){if(cfg) localStorage.setItem(SYNC_KEY,JSON.stringify(cfg)); else localStorage.removeItem(SYNC_KEY);}
+
+  async function syncFetch(path, opts){
+    const cfg=getSync(); if(!cfg||!cfg.base||!cfg.id) throw new Error('No sync room');
+    const base=cfg.base.replace(/\/$/,'');
+    return fetch(base+'/'+encodeURIComponent(cfg.id), Object.assign({headers:{'Content-Type':'application/json'}}, opts||{}));
+  }
+  async function createSyncRoom(){
+    // try jsonblob first
+    const d=load();
+    try{
+      const res=await fetch('https://jsonblob.com/api/jsonBlob',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(d)});
+      if(res.ok){let id=null; const loc=res.headers.get('Location')||res.headers.get('location'); if(loc){id=loc.split('/').pop()} else {try{const j=await res.clone().json(); id=j.id||j.blobId||null;}catch(e){}} if(id){const cfg={provider:'jsonblob',base:'https://jsonblob.com/api/jsonBlob',id}; setSyncCfg(cfg); startSync(); return cfg;}}
+    }catch(e){}
+    // fallback: pantry-like manual not available; fallback to npoint not creatable anonymously reliably -> generate local room code using jsonstorage.net
+    try{
+      const res=await fetch('https://jsonstorage.net/api/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+      if(res.ok){const j=await res.json(); const uri=j.uri||''; const id=uri.split('/').pop(); if(id){const cfg={provider:'jsonstorage',base:'https://jsonstorage.net/api/items',id}; setSyncCfg(cfg); startSync(); return cfg;}}
+    }catch(e){}
+    throw new Error('Could not create sync room (network/CORS). You can still use Export/Import in Admin.');
+  }
+  async function joinSyncRoom(id, provider){
+    id=String(id||'').trim(); if(!id) throw new Error('Enter a sync ID');
+    provider=provider||(/^[a-f0-9\-]{20,}$/i.test(id)?'jsonstorage':'jsonblob');
+    const cfg={provider,base:provider==='jsonstorage'?'https://jsonstorage.net/api/items':'https://jsonblob.com/api/jsonBlob',id};
+    setSyncCfg(cfg); await pullSync(true); startSync(); return cfg;
+  }
+  async function pullSync(force){
+    const cfg=getSync(); if(!cfg) return;
+    try{
+      const res=await fetch(cfg.base.replace(/\/$/,'')+'/'+encodeURIComponent(cfg.id),{headers:{'Accept':'application/json'}});
+      if(!res.ok) return;
+      const remote=normalize(await res.json());
+      const local=load();
+      if(force || (remote._ts||0) > (local._ts||0)){
+        applyingRemote=true; localStorage.setItem(KEY,JSON.stringify(remote)); applyingRemote=false;
+        window.dispatchEvent(new Event('dt-update'));
+      } else if((local._ts||0) > (remote._ts||0)){
+        pushSync();
+      }
+    }catch(e){}
+  }
+  async function pushSync(){
+    const cfg=getSync(); if(!cfg || applyingRemote || pushing) return;
+    pushing=true;
+    try{
+      const d=load();
+      await fetch(cfg.base.replace(/\/$/,'')+'/'+encodeURIComponent(cfg.id),{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(d)});
+    }catch(e){} finally{pushing=false;}
+  }
+  function startSync(){ if(syncTimer) clearInterval(syncTimer); if(getSync()){ pullSync(true); syncTimer=setInterval(()=>pullSync(false), 4000);} }
+  function stopSync(){ if(syncTimer) clearInterval(syncTimer); syncTimer=null; }
+
+  window.DT={KEY,SYNC_KEY,SESSION_KEY,load,save,uid,now,fmt,genCode,makeQRUrl,getUserByCode,getUserById,upsertUser,addMenuItem,setPendingPayment,clearPendingPayment,seed,normalize,
+    getSession,setSession,currentUser,logout,
+    getSync,setSyncCfg,createSyncRoom,joinSyncRoom,pullSync,pushSync,startSync,stopSync};
+  startSync();
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden) pullSync(false)});
 })();
