@@ -102,9 +102,12 @@
         <div class="panel soft" style="margin-top:10px">
           <div class="section-title small-title">Sync</div>
           <div class="small">Use the same Sync ID on PC/register/admin and phone for real-time sync.</div>
-          <label>Sync ID</label>
-          <input id="syncIdInput2" placeholder="Sync ID" />
+          <label>Sync ID / Gist ID</label>
+          <input id="syncIdInput2" placeholder="Sync ID or Gist ID" />
+          <label>GitHub Token (for Gist sync)</label>
+          <input id="ghToken2" type="password" placeholder="ghp_... (gist scope)" />
           <div class="row" style="margin-top:8px"><button class="btn secondary" id="joinSync2">Join</button><button class="btn secondary" id="createSync2">Create</button><button class="btn secondary" id="pullSync2">Refresh</button></div>
+          <div class="row" style="margin-top:8px"><button class="btn secondary" id="joinGist2">Join Gist</button></div>
           <div id="syncMsg2" class="small" style="margin-top:8px"></div>
         </div>
         <div class="panel soft" style="margin-top:10px">
@@ -128,7 +131,7 @@
     let stream=null, detector=null, scanTimer=null;
     function $(id){return document.getElementById(id)}
     function showAuth(show){$('authScreen').style.display=show?'flex':'none'; $('appShell').style.display=show?'none':'block';}
-    function refreshSyncInputs(){const cfg=DT.getSync(); const v=cfg?cfg.id:''; if($('syncIdInput')) $('syncIdInput').value=v; if($('syncIdInput2')) $('syncIdInput2').value=v;}
+    function refreshSyncInputs(){const cfg=DT.getSync(); const v=cfg?cfg.id:''; if($('syncIdInput')) $('syncIdInput').value=v; if($('syncIdInput2')) $('syncIdInput2').value=v; if(cfg&&cfg.token&&$('ghToken2')) $('ghToken2').value=cfg.token;}
     function render(){
       const u=DT.currentUser();
       if(!u){showAuth(true); refreshSyncInputs(); return;}
@@ -171,11 +174,12 @@
     $('acctTop').onclick=()=>showTab('account');
 
     async function doCreateSync(out){try{out.textContent='Creating sync room...'; const cfg=await DT.createSyncRoom(); out.textContent='Sync created. Share this ID on all devices: '+cfg.id; refreshSyncInputs(); render();}catch(e){out.textContent='Sync error: '+e.message;}}
-    async function doJoinSync(out,input){try{out.textContent='Joining...'; await DT.joinSyncRoom(input.value.trim(), 'jsonstorage'); out.textContent='Joined sync: '+DT.getSync().id; refreshSyncInputs(); render();}catch(e){out.textContent='Sync error: '+e.message;}}
+    async function doJoinSync(out,input,tokenEl){try{out.textContent='Joining...'; const token=tokenEl?tokenEl.value.trim():''; await DT.joinSyncRoom(input.value.trim(), token?'gist':null, {token, forceGist:!!token}); out.textContent='Joined sync: '+DT.getSync().id; refreshSyncInputs(); render();}catch(e){out.textContent='Sync error: '+e.message;}}
     $('createSync').onclick=()=>doCreateSync($('syncMsg'));
-    $('joinSync').onclick=()=>doJoinSync($('syncMsg'),$('syncIdInput'));
+    $('joinSync').onclick=()=>doJoinSync($('syncMsg'),$('syncIdInput'),null);
     $('createSync2').onclick=()=>doCreateSync($('syncMsg2'));
-    $('joinSync2').onclick=()=>doJoinSync($('syncMsg2'),$('syncIdInput2'));
+    $('joinSync2').onclick=()=>doJoinSync($('syncMsg2'),$('syncIdInput2'),$('ghToken2'));
+    $('joinGist2').onclick=async()=>{const out=$('syncMsg2'); try{const token=$('ghToken2').value.trim(); const id=$('syncIdInput2').value.trim(); if(!id){out.textContent='Enter Gist ID.';return;} out.textContent='Joining Gist...'; await DT.joinSyncRoom(id,'gist',{token}); out.textContent='Joined Gist sync: '+id; refreshSyncInputs(); render();}catch(e){out.textContent='Sync error: '+e.message;}};
     $('pullSync2').onclick=async()=>{if(!DT.getSync()){$('syncMsg2').textContent='No sync room joined.';return;} await DT.pullSync(true); $('syncMsg2').textContent='Refreshed.'; render();};
 
     function showTab(name){
