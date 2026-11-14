@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#06c167" />
+  <title>DSM Eats</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .pilltab{padding:8px 12px;border-radius:999px;border:1px solid #2a2f3d;background:#1c2030;color:#fff;font-weight:700;white-space:nowrap}
+    .pilltab.active{background:#06c167;color:#001a0d;border-color:#06c167}
+    .status{display:inline-block;padding:3px 8px;border-radius:999px;font-size:.75rem;font-weight:800;background:#2a2f3d;color:#fff}
+    .s-placed{background:#2563eb}.s-accepted{background:#7c3aed}.s-picked_up{background:#f59e0b;color:#111}.s-delivered{background:#16a34a}
+  </style>
+</head>
+<body class="app-body">
+  <div class="app-shell" style="display:block">
+    <header class="app-header">
+      <div class="app-brand"><span style="font-weight:900;color:#06c167">DSM Eats</span></div>
+      <a class="user-pill-btn" href="phone.html" style="text-decoration:none">Home</a>
+    </header>
+    <div style="padding:10px 14px;display:flex;gap:8px;overflow:auto;border-bottom:1px solid var(--border);background:rgba(18,20,28,.95);position:sticky;top:53px;z-index:9">
+      <button class="pilltab active" data-view="customer">Customer</button>
+      <button class="pilltab" data-view="driver">Driver</button>
+      <button class="pilltab" data-view="restaurant">Restaurant</button>
+    </div>
+    <main class="app-main">
+      <section id="view-customer">
+        <div class="panel soft" style="background:linear-gradient(135deg,#062f1f,#0f1115);border-color:#14532d">
+          <div style="font-weight:900;font-size:1.2rem;color:#fff">Order from DSMDonalds</div>
+          <div class="small">Delivery app demo · restaurant gets receipt, driver delivers</div>
+        </div>
+        <div class="section-title">Menu</div>
+        <div id="custMenu" class="menu-grid"></div>
+        <div class="panel soft" style="margin-top:12px">
+          <div class="section-title small-title">Cart</div>
+          <div id="custCart"></div>
+          <label style="margin-top:8px">Delivery address</label>
+          <input id="custAddr" placeholder="123 Main St" />
+          <label style="margin-top:8px">Notes (optional)</label>
+          <input id="custNotes" placeholder="No pickles, leave at door..." />
+          <div class="total" style="margin-top:8px">Subtotal: <span id="custTotal">$0.00</span> · Delivery: $2.99 · <b>Total: <span id="custGrand">$0.00</span></b></div>
+          <button class="btn block green" id="placeDelivery" style="margin-top:10px;background:#06c167;color:#001a0d">Place Delivery Order</button>
+          <div id="custMsg" class="small" style="margin-top:8px"></div>
+        </div>
+        <div class="section-title">My Delivery Orders</div>
+        <div id="custOrders"></div>
+      </section>
+
+      <section id="view-driver" style="display:none">
+        <div class="panel soft">
+          <div style="font-weight:800;color:#fff">Driver Dashboard</div>
+          <div class="small">Accept orders, pick up from DSMDonalds, deliver to customer.</div>
+          <input id="driverName" placeholder="Driver name" style="margin-top:8px" />
+        </div>
+        <div class="section-title">Available / Active Orders</div>
+        <div id="driverOrders"></div>
+      </section>
+
+      <section id="view-restaurant" style="display:none">
+        <div class="panel soft">
+          <div style="font-weight:800;color:#fff">DSMDonalds Restaurant</div>
+          <div class="small">Incoming delivery orders & receipts.</div>
+        </div>
+        <div class="section-title">Receipts & Orders</div>
+        <div id="restOrders"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    const $=id=>document.getElementById(id);
+    let cart=[];
+    function view(name){['customer','driver','restaurant'].forEach(v=>{$('view-'+v).style.display=v===name?'block':'none'; document.querySelector(`[data-view="${v}"]`).classList.toggle('active',v===name);}); renderAll();}
+    document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>view(b.dataset.view));
+    function subtotal(){return cart.reduce((s,i)=>s+Number(i.price||0),0)}
+    function renderMenu(){const d=DT.load(); $('custMenu').innerHTML=d.menu.map(m=>`<div class="item" data-id="${m.id}"><img src="${m.img||''}" alt=""><div class="info"><div class="name">${m.name}</div><div class="price">${DT.fmt(m.price)}</div></div></div>`).join(''); $('custMenu').querySelectorAll('[data-id]').forEach(x=>x.onclick=()=>{const m=d.menu.find(i=>i.id===x.dataset.id); if(!m)return; cart.push({id:m.id,name:m.name,price:Number(m.price)}); renderCart();});}
+    function renderCart(){ $('custCart').innerHTML=cart.map((c,i)=>`<div class="pos-line"><span>${c.name}</span><span>${DT.fmt(c.price)} <button data-rm="${i}" style="margin-left:8px;background:#2a2f3d;color:#fff;border:0;border-radius:8px;padding:2px 8px">×</button></span></div>`).join('')||'<div class="small">Cart empty</div>'; $('custCart').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{cart.splice(Number(b.dataset.rm),1); renderCart();}); const st=subtotal(); $('custTotal').textContent=DT.fmt(st); $('custGrand').textContent=DT.fmt(st?st+2.99:0); }
+    function statusPill(s){return `<span class="status s-${s||'placed'}">${(s||'placed').replace('_',' ')}</span>`}
+    function renderCustomerOrders(){const d=DT.load(); const u=DT.currentUser(); const mine=(d.deliveryOrders||[]).filter(o=>!u||o.userId===u.id).slice().sort((a,b)=>b.at-a.at); $('custOrders').innerHTML=mine.map(o=>`<div class="panel soft" style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b>Order #${o.id.slice(-4)}</b>${statusPill(o.status)}</div><div class="small">${o.items.map(i=>i.name).join(', ')}</div><div class="small">To: ${o.address||'—'} · Total ${DT.fmt(o.total)} ${o.driverName?('· Driver: '+o.driverName):''}</div></div>`).join('')||'<div class="small">No delivery orders yet.</div>'; }
+    function renderDriver(){const d=DT.load(); const name=($('driverName').value||'Driver').trim()||'Driver'; const list=(d.deliveryOrders||[]).slice().sort((a,b)=>b.at-a.at); $('driverOrders').innerHTML=list.map(o=>{
+      let actions='';
+      if(o.status==='placed') actions=`<button class="btn green" data-act="accept" data-id="${o.id}" style="margin-top:8px">Accept Delivery</button>`;
+      else if(o.status==='accepted') actions=`<button class="btn" data-act="pickup" data-id="${o.id}" style="margin-top:8px">Picked Up</button>`;
+      else if(o.status==='picked_up') actions=`<button class="btn green" data-act="deliver" data-id="${o.id}" style="margin-top:8px">Mark Delivered</button>`;
+      return `<div class="panel soft" style="margin-top:10px"><div style="display:flex;justify-content:space-between"><b>Order #${o.id.slice(-4)}</b>${statusPill(o.status)}</div><div class="small">${o.customerName||'Customer'} · ${o.items.map(i=>i.name).join(', ')}</div><div class="small">Pickup: DSMDonalds · Dropoff: ${o.address||'—'}</div><div class="small">Total ${DT.fmt(o.total)} ${o.driverName?('· Driver: '+o.driverName):''}</div>${actions}</div>`;
+    }).join('')||'<div class="small">No orders.</div>';
+      $('driverOrders').querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{
+        const dd=DT.load(); const o=(dd.deliveryOrders||[]).find(x=>x.id===b.dataset.id); if(!o) return;
+        if(b.dataset.act==='accept'){o.status='accepted'; o.driverName=name;}
+        if(b.dataset.act==='pickup'){o.status='picked_up'; o.driverName=o.driverName||name;}
+        if(b.dataset.act==='deliver'){o.status='delivered'; o.driverName=o.driverName||name; o.deliveredAt=Date.now();}
+        dd.deliveryOrders = dd.deliveryOrders||[]; DT.save(dd); renderAll();
+      });
+    }
+    function renderRestaurant(){const d=DT.load(); const list=(d.deliveryOrders||[]).slice().sort((a,b)=>b.at-a.at); $('restOrders').innerHTML=list.map(o=>`<div class="panel soft" style="margin-top:10px"><div style="display:flex;justify-content:space-between"><b>Receipt · Order #${o.id.slice(-4)}</b>${statusPill(o.status)}</div><div class="small">${new Date(o.at).toLocaleString()} · ${o.customerName||'Customer'}</div><hr style="border:0;border-top:1px solid #2a2f3d;margin:8px 0">${o.items.map(i=>`<div class="pos-line"><span>${i.name}</span><span>${DT.fmt(i.price)}</span></div>`).join('')}<div class="pos-line"><span>Delivery fee</span><span>${DT.fmt(o.fee||2.99)}</span></div><div class="pos-line"><b>Total</b><b>${DT.fmt(o.total)}</b></div><div class="small">Deliver to: ${o.address||'—'} ${o.notes?('· Notes: '+o.notes):''}</div><div class="small">Driver: ${o.driverName||'Unassigned'} · Restaurant received receipt</div></div>`).join('')||'<div class="small">No receipts yet.</div>'; }
+    function renderAll(){renderMenu(); renderCart(); renderCustomerOrders(); renderDriver(); renderRestaurant();}
+    $('placeDelivery').onclick=async()=>{
+      const st=subtotal(); if(st<=0){$('custMsg').textContent='Add items to cart.'; return;}
+      const u=DT.currentUser();
+      if(DT.getSync()) await DT.pullSync(true);
+      const d=DT.load();
+      const order={id:'D'+DT.uid(),userId:u?u.id:null,customerName:u?u.name:'Guest',items:cart.map(i=>({name:i.name,price:i.price})),subtotal:st,fee:2.99,total:st+2.99,address:($('custAddr').value||'').trim(),notes:($('custNotes').value||'').trim(),status:'placed',at:Date.now(),driverName:null,restaurant:'DSMDonalds',receiptSentToRestaurant:true};
+      d.deliveryOrders=d.deliveryOrders||[]; d.deliveryOrders.unshift(order);
+      d.receipts=d.receipts||[]; d.receipts.unshift({id:'DR'+DT.uid(),type:'delivery',orderId:order.id,items:order.items,total:order.total,customer:order.customerName,at:order.at,status:'placed'});
+      DT.save(d);
+      cart=[]; $('custAddr').value=''; $('custNotes').value=''; $('custMsg').textContent='Order placed! Receipt sent to DSMDonalds restaurant. A driver can accept it.'; renderAll();
+    };
+    window.addEventListener('dt-update',renderAll); window.addEventListener('storage',renderAll);
+    setInterval(()=>{ if(DT.getSync()) DT.pullSync(false); }, 3500);
+    renderAll();
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+  </script>
+</body>
+</html>
