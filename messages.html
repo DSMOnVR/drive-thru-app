@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0f1115" />
+  <title>Messages</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .msg{padding:12px;border:1px solid #2a2f3d;border-radius:14px;background:#151923;margin-top:10px}
+    .msg.unread{border-color:#2563eb;box-shadow:0 0 0 1px rgba(37,99,235,.25)}
+  </style>
+</head>
+<body class="app-body">
+  <div class="app-shell" style="display:block">
+    <header class="app-header">
+      <div class="app-brand"><span style="font-weight:900">Messages</span></div>
+      <div style="display:flex;gap:8px;align-items:center"><span id="me" class="small"></span><a class="user-pill-btn" href="phone.html" style="text-decoration:none">Home</a></div>
+    </header>
+    <main class="app-main">
+      <div id="loginPanel" class="panel soft" style="display:none">
+        <div class="section-title small-title">Log in to view messages</div>
+        <input id="code" maxlength="8" placeholder="Your 4-digit rewards code" />
+        <button class="btn block" id="loginBtn" style="margin-top:8px">Log In</button>
+        <div id="msg" class="small" style="margin-top:6px"></div>
+      </div>
+      <div class="panel soft">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <div><div style="font-weight:800;color:#fff">Inbox</div><div class="small">Messages from DSMDonalds drive-thru and others.</div></div>
+          <button class="btn secondary" id="refresh">Refresh</button>
+        </div>
+      </div>
+      <div id="list"></div>
+    </main>
+  </div>
+  <script src="js/app.js"></script>
+  <script>
+    const $=id=>document.getElementById(id);
+    function render(){
+      const u=DT.currentUser();
+      $('me').textContent=u?`${u.name} (${u.code})`:'Not logged in';
+      $('loginPanel').style.display=u?'none':'block';
+      const d=DT.load();
+      const msgs=(d.messages||[]).filter(m=>u && (m.toUserId===u.id || String(m.toCode)===String(u.code))).sort((a,b)=>b.at-a.at);
+      $('list').innerHTML = msgs.length ? msgs.map(m=>`<div class="msg ${m.read?'':'unread'}" data-id="${m.id}">
+        <div style="display:flex;justify-content:space-between;gap:8px"><b>${m.from||'DSMDonalds'}</b><span class="small">${new Date(m.at).toLocaleString()}</span></div>
+        <div style="margin-top:6px;color:#fff;white-space:pre-wrap">${(m.text||'').replace(/</g,'&lt;')}</div>
+        ${m.receiptId?`<div class="small" style="margin-top:6px">Receipt: ${m.receiptId}</div>`:''}
+      </div>`).join('') : '<div class="panel soft" style="margin-top:12px"><div class="small">No messages yet.</div></div>';
+      // mark read
+      if(u && msgs.some(m=>!m.read)){
+        let changed=false; (d.messages||[]).forEach(m=>{ if((m.toUserId===u.id||String(m.toCode)===String(u.code)) && !m.read){m.read=true; changed=true;} });
+        if(changed) DT.save(d);
+      }
+    }
+    $('loginBtn').onclick=async()=>{ const code=($('code').value||'').trim(); if(!code) return; if(DT.getSync()) await DT.pullSync(true); const u=DT.getUserByCode(code); if(!u){$('msg').textContent='No user found.'; return;} DT.setSession({userId:u.id}); render(); };
+    $('refresh').onclick=async()=>{ if(DT.getSync()) await DT.pullSync(true); render(); };
+    window.addEventListener('dt-update',render); window.addEventListener('storage',render); window.addEventListener('dt-session',render);
+    setInterval(()=>{ if(DT.getSync()) DT.pullSync(false); }, 3000);
+    render();
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+  </script>
+</body>
+</html>

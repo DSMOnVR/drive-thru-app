@@ -9,76 +9,154 @@
   <link rel="stylesheet" href="css/styles.css" />
   <style>
     body{background:#0b0d12;color:#fff;font-family:system-ui,Segoe UI,Arial;margin:0}
-    .wrap{max-width:1100px;margin:0 auto;padding:20px}
+    .wrap{max-width:1200px;margin:0 auto;padding:20px}
     .head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
     .title{font-size:1.8rem;font-weight:900}.title span{color:#ffbc0d}
     .panel{background:#151923;border:1px solid #2a2f3d;border-radius:16px;padding:16px;margin-top:14px}
-    .call{padding:14px;border:1px solid #2a2f3d;border-radius:14px;margin-top:10px;background:#101420}
-    .call.new{border-color:#1f8f4e;box-shadow:0 0 0 1px rgba(31,143,78,.3)}
     .meta{color:#9aa3b2;font-size:.9rem}
-    .order-text{font-size:1.2rem;font-weight:700;margin:6px 0}
     .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
     button{background:#d9232e;color:#fff;border:0;border-radius:12px;padding:10px 14px;font-weight:800;cursor:pointer}
-    button.secondary{background:#2a2f3d}
-    .status{color:#9aa3b2;margin-top:8px}
-    .big{font-size:1rem}
+    button.secondary{background:#2a2f3d} button.green{background:#1f8f4e}
+    input{background:#0f1115;color:#fff;border:1px solid #2a2f3d;border-radius:10px;padding:10px}
+    .chat{max-height:280px;overflow:auto;display:grid;gap:8px}
+    .bubble{padding:10px 12px;border-radius:12px;border:1px solid #2a2f3d}
+    .ai{background:#1f2b22}.cust{background:#1a2233}
+    .grid2{display:grid;grid-template-columns:1.2fr .8fr;gap:14px} @media(max-width:900px){.grid2{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="head">
-      <div class="title"><span>M</span> DSMDonalds Drive-Thru Speaker (PC)</div>
+      <div class="title"><span>M</span> DSMDonalds Drive-Thru AI (PC)</div>
       <div class="controls">
         <button id="enableTts">Enable Voice (TTS)</button>
-        <button class="secondary" id="testTts">Test Voice</button>
+        <button class="secondary" id="listenBtn">🎤 Listen (STT)</button>
+        <button class="secondary" id="newOrder">New Order</button>
         <a href="index.html" style="color:#fff;align-self:center">Home</a>
       </div>
     </div>
-    <div id="status" class="status">Waiting for calls/orders from the phone app... (TTS will speak new orders when enabled)</div>
-    <div class="panel">
-      <div style="font-weight:800;margin-bottom:6px">Incoming Calls & Orders</div>
-      <div id="calls" class="big"></div>
+    <div id="status" class="meta" style="margin-top:8px">AI drive-thru ready. Enable voice, then take orders (via phone messages or speak/type here). It will ask "Is that all?", request 4-digit code, send a message, and create a receipt.</div>
+
+    <div class="grid2">
+      <div>
+        <div class="panel">
+          <div style="font-weight:800;margin-bottom:6px">AI Conversation</div>
+          <div id="aiChat" class="chat"></div>
+          <div class="controls">
+            <input id="aiInput" placeholder="Type customer said / order here..." style="flex:1;min-width:220px" />
+            <button id="aiSend">Send</button>
+          </div>
+          <div id="sttStatus" class="meta" style="margin-top:6px"></div>
+        </div>
+        <div class="panel">
+          <div style="font-weight:800;margin-bottom:6px">Live Phone Messages (Back & Forth)</div>
+          <div id="phoneLog" class="chat"></div>
+          <div class="meta" style="margin-top:6px">Phone app messages to DSMDonalds appear here and can be handled by the AI.</div>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <div style="font-weight:800;margin-bottom:6px">Current Order</div>
+          <div id="orderView" class="meta">No items yet.</div>
+        </div>
+        <div class="panel">
+          <div style="font-weight:800;margin-bottom:6px">Restaurant Receipts (latest)</div>
+          <div id="receiptsView" class="meta"></div>
+        </div>
+      </div>
     </div>
   </div>
 
   <script src="js/app.js"></script>
   <script>
     const $=id=>document.getElementById(id);
-    let ttsEnabled=false, spokenCalls=new Set(), spokenChat=new Set();
-    function speak(text){ if(!ttsEnabled || !('speechSynthesis' in window)) return; window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=1; u.pitch=1; u.volume=1; window.speechSynthesis.speak(u); }
-    function render(){
-      const d=DT.load();
-      const calls=(d.driveThruCalls||[]).slice().sort((a,b)=>b.at-a.at);
-      const chat=(d.driveThruChat||[]).slice().sort((a,b)=>a.at-b.at);
-      $('calls').innerHTML = (calls.length?calls.map(c=>{
-        const when=new Date(c.at).toLocaleString();
-        const who=c.userName||'Guest';
-        const msg=c.message||c.orderText||'New order';
-        return `<div class="call ${spokenCalls.has(c.id)?'':'new'}" data-id="${c.id}">
-          <div class="meta">${when} · ${who} ${c.code?('· Code '+c.code):''}</div>
-          <div class="order-text">${(msg||'').replace(/</g,'&lt;')}</div>
-          <div class="meta">Status: ${c.status||'received'}${c.total!=null?' · Total: '+DT.fmt(c.total):''}</div>
-          <div class="controls"><button data-speak="${c.id}">Speak</button><button class="secondary" data-done="${c.id}">Mark Done</button></div>
-        </div>`;
-      }).join(''):'<div class="meta">No incoming call orders yet.</div>') +
-      `<div class="panel" style="margin-top:12px;background:#101420;border:1px solid #2a2f3d;border-radius:14px;padding:12px"><div style="font-weight:800;margin-bottom:6px">Live Phone Conversation (Back & Forth)</div>
-        <div id="chatLog" style="max-height:260px;overflow:auto;display:grid;gap:8px">${chat.map(m=>`<div style="padding:8px 10px;border-radius:10px;background:${m.from==='pc'?'#1f2b22':'#1a2233'};border:1px solid #2a2f3d"><div class="meta">${m.from==='pc'?'PC':'Phone'} · ${new Date(m.at).toLocaleTimeString()}</div><div>${(m.text||'').replace(/</g,'&lt;')}</div></div>`).join('')||'<div class="meta">No live conversation yet. Use Phone app to call DSMDonalds.</div>'}</div>
-        <div class="controls" style="margin-top:10px"><input id="replyText" placeholder="Type response to speak to phone..." style="flex:1;min-width:220px;background:#0f1115;color:#fff;border:1px solid #2a2f3d;border-radius:10px;padding:10px"/><button id="sendReply">Speak & Send to Phone</button></div>
-        <div class="meta" style="margin-top:6px">Replies are saved and read aloud on the Phone app (back-and-forth).</div>
-      </div>`;
-      document.querySelectorAll('[data-speak]').forEach(b=>b.onclick=()=>{const c=calls.find(x=>x.id===b.dataset.speak); if(c) speak('Order from '+(c.userName||'guest')+'. '+(c.message||c.orderText||''));});
-      document.querySelectorAll('[data-done]').forEach(b=>b.onclick=()=>{const dd=DT.load(); const x=dd.driveThruCalls.find(x=>x.id===b.dataset.done); if(x){x.status='done'; DT.save(dd);} });
-      const sendReply=$('sendReply');
-      if(sendReply) sendReply.onclick=()=>{ const text=($('replyText').value||'').trim(); if(!text) return; const dd=DT.load(); dd.driveThruChat=dd.driveThruChat||[]; dd.driveThruChat.push({id:DT.uid(),at:Date.now(),from:'pc',text}); if(dd.driveThruChat.length>100) dd.driveThruChat=dd.driveThruChat.slice(-100); DT.save(dd); $('replyText').value=''; speak(text); };
-      calls.slice().reverse().forEach(c=>{ if(!spokenCalls.has(c.id)){ spokenCalls.add(c.id); if(ttsEnabled){ speak('New drive thru order from '+(c.userName||'guest')+'. '+(c.message||c.orderText||'')); } } });
-      chat.forEach(m=>{ if(m.from==='phone' && !spokenChat.has(m.id)){ spokenChat.add(m.id); if(ttsEnabled){ speak('Phone says: '+m.text); } } });
-      const cl=$('chatLog'); if(cl) cl.scrollTop=cl.scrollHeight;
+    let ttsEnabled=false, recognition=null, listening=false;
+    let convo=[], processedChat=new Set(), orderItems=[], stage='greet', pendingUser=null; // greet,taking,confirm,code,done
+    function speak(text){ if(!text) return; pushConvo('ai',text); if(ttsEnabled && 'speechSynthesis' in window){ window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=1; window.speechSynthesis.speak(u);} }
+    function pushConvo(who,text){ convo.push({who,text,at:Date.now()}); if(convo.length>80) convo=convo.slice(-80); renderConvo(); }
+    function renderConvo(){ $('aiChat').innerHTML=convo.map(m=>`<div class="bubble ${m.who==='ai'?'ai':'cust'}"><div class="meta">${m.who==='ai'?'Drive-Thru AI':'Customer'} · ${new Date(m.at).toLocaleTimeString()}</div><div>${String(m.text).replace(/</g,'&lt;')}</div></div>`).join('')||'<div class="meta">No conversation yet.</div>'; $('aiChat').scrollTop=$('aiChat').scrollHeight; }
+    function renderOrder(){ if(!orderItems.length){$('orderView').innerHTML='<div class="meta">No items yet.</div>'; return;} const total=orderItems.reduce((s,i)=>s+Number(i.price||0),0); $('orderView').innerHTML=orderItems.map(i=>`<div style="display:flex;justify-content:space-between"><span>${i.name}</span><span>${DT.fmt(i.price)}</span></div>`).join('')+`<hr style="border:0;border-top:1px solid #2a2f3d;margin:8px 0"><div style="display:flex;justify-content:space-between"><b>Total</b><b>${DT.fmt(total)}</b></div><div class="meta" style="margin-top:6px">Stage: ${stage}</div>`; }
+    function renderReceipts(){ const d=DT.load(); const rec=(d.receipts||[]).slice(0,6); $('receiptsView').innerHTML=rec.map(r=>`<div style="padding:10px;border:1px solid #2a2f3d;border-radius:12px;margin-top:8px;background:#101420"><div style="display:flex;justify-content:space-between"><b>${r.type==='drive-thru'?'Drive-Thru':'Receipt'} ${r.id||''}</b><span class="meta">${new Date(r.at).toLocaleString()}</span></div><div class="meta">${(r.items||[]).map(i=>i.name).join(', ')}</div><div style="font-weight:700;margin-top:4px">Total ${DT.fmt(r.total)} ${r.code?('· Code '+r.code):''}</div></div>`).join('')||'<div class="meta">No receipts yet.</div>'; }
+    function renderPhone(){ const d=DT.load(); const chat=(d.driveThruChat||[]).slice().sort((a,b)=>a.at-b.at); $('phoneLog').innerHTML=chat.map(m=>`<div class="bubble ${m.from==='pc'?'ai':'cust'}"><div class="meta">${m.from==='pc'?'PC/AI':'Phone'} · ${new Date(m.at).toLocaleTimeString()}</div><div>${String(m.text||'').replace(/</g,'&lt;')}</div></div>`).join('')||'<div class="meta">No phone messages.</div>'; $('phoneLog').scrollTop=$('phoneLog').scrollHeight; }
+    function replyToPhone(text){ const d=DT.load(); d.driveThruChat=d.driveThruChat||[]; d.driveThruChat.push({id:DT.uid(),at:Date.now(),from:'pc',text}); if(d.driveThruChat.length>120) d.driveThruChat=d.driveThruChat.slice(-120); DT.save(d); }
+    function findMenuMatches(text){
+      const d=DT.load(); const t=String(text||'').toLowerCase(); const found=[];
+      const qty=(t.match(/\b(\d+|one|two|three|four|five)\b/)||[])[1];
+      const nMap={one:1,two:2,three:3,four:4,five:5}; let n=qty?(nMap[qty]||parseInt(qty,10)||1):1; if(!isFinite(n)||n<1) n=1; if(n>10) n=10;
+      d.menu.forEach(m=>{ const name=m.name.toLowerCase(); const key=name.split(' ')[0]; if(t.includes(name) || t.includes(key) || (key.length>3 && t.includes(key))){ for(let i=0;i<n;i++) found.push({id:m.id,name:m.name,price:Number(m.price)}); } });
+      // fallback keywords
+      if(!found.length){ if(t.includes('burger')){const m=d.menu.find(x=>/burger/i.test(x.name)); if(m) for(let i=0;i<n;i++) found.push({id:m.id,name:m.name,price:Number(m.price)});} if(t.includes('fries')){const m=d.menu.find(x=>/fries/i.test(x.name)); if(m) for(let i=0;i<n;i++) found.push({id:m.id,name:m.name,price:Number(m.price)});} if(t.includes('nugget')){const m=d.menu.find(x=>/nugget/i.test(x.name)); if(m) for(let i=0;i<n;i++) found.push({id:m.id,name:m.name,price:Number(m.price)});} if(t.includes('cola')||t.includes('coke')||t.includes('drink')||t.includes('soda')){const m=d.menu.find(x=>/cola|drink|soda/i.test(x.name)); if(m) for(let i=0;i<n;i++) found.push({id:m.id,name:m.name,price:Number(m.price)});} if(t.includes('shake')){const m=d.menu.find(x=>/shake/i.test(x.name)); if(m) for(let i=0;i<n;i++) found.push({id:m.id,name:m.name,price:Number(m.price)});} }
+      return found;
     }
-    $('enableTts').onclick=()=>{ ttsEnabled=true; $('status').textContent='Voice enabled. Phone orders and messages will be read aloud, and you can speak back to the phone.'; speak('Drive thru speaker enabled.'); render(); };
-    $('testTts').onclick=()=>{ const was=ttsEnabled; ttsEnabled=true; speak('This is a test. Welcome to D S M Donalds drive thru.'); ttsEnabled=was; };
-    window.addEventListener('dt-update',render); window.addEventListener('storage',render);
-    setInterval(()=>{ if(DT.getSync()) DT.pullSync(false); }, 2500);
-    render();
+    function aiSay(text){ speak(text); replyToPhone(text); }
+    function resetOrder(greet){ orderItems=[]; stage='taking'; pendingUser=null; if(greet) aiSay('Welcome to DSMDonalds drive-thru. What can I get for you today?'); renderOrder(); }
+    async function finalizeWithCode(code){
+      const d=DT.load(); let u=d.users.find(x=>String(x.code)===String(code));
+      const total=orderItems.reduce((s,i)=>s+Number(i.price||0),0);
+      const ptsEarned=Math.floor(total*(d.rewards.pointsPerDollar||10));
+      if(u){ u.points=(u.points||0)+ptsEarned; }
+      const receipt={id:'DT'+DT.uid(),type:'drive-thru',at:Date.now(),items:orderItems.map(i=>({name:i.name,price:i.price})),total,code:String(code),userId:u?u.id:null,customerName:u?u.name:'Guest',status:'completed'};
+      d.receipts=d.receipts||[]; d.receipts.unshift(receipt);
+      d.orders=d.orders||[]; d.orders.unshift({id:'O'+DT.uid(),userId:u?u.id:null,items:receipt.items,total,at:receipt.at,status:'confirmed',receiptId:receipt.id,source:'drive-thru-ai'});
+      d.messages=d.messages||[];
+      const msgText = `DSMDonalds Drive-Thru Receipt\nOrder ${receipt.id}\nItems: ${receipt.items.map(i=>i.name).join(', ')}\nTotal: ${DT.fmt(total)}\n${u?('Points earned: '+ptsEarned):''}\nThank you!`;
+      d.messages.unshift({id:'M'+DT.uid(),toUserId:u?u.id:null,toCode:String(code),from:'DSMDonalds Drive-Thru',text:msgText,at:Date.now(),read:false,receiptId:receipt.id});
+      d.driveThruCalls=d.driveThruCalls||[]; d.driveThruCalls.unshift({id:DT.uid(),at:Date.now(),userId:u?u.id:null,userName:u?u.name:'Drive-Thru Guest',code:String(code),message:receipt.items.map(i=>i.name).join(', '),orderText:receipt.items.map(i=>i.name).join(', '),total,status:'completed',source:'drive-thru-ai'});
+      DT.save(d);
+      stage='done'; renderOrder(); renderReceipts();
+      aiSay(`Thanks${u?', '+u.name:''}! Your total is ${DT.fmt(total)}. I sent your receipt to your messages app. Please pull forward.`);
+      setTimeout(()=>{ stage='greet'; }, 1500);
+    }
+    function handleCustomer(textRaw){
+      const text=String(textRaw||'').trim(); if(!text) return;
+      pushConvo('cust', text);
+      const t=text.toLowerCase();
+      if(stage==='greet' || stage==='done'){ resetOrder(false); }
+      if(stage==='taking'){
+        if(/\b(that'?s all|thats all|nothing else|nope|no thanks|no that is all|i'm done|im done|done)\b/.test(t) && !/\b(no pickles|no onions|no salt)\b/.test(t)){
+          if(!orderItems.length){ aiSay('I don\'t have any items yet. What would you like to order?'); return; }
+          stage='code'; aiSay('Is that all? Great. What is your 4 digit rewards number?'); renderOrder(); return;
+        }
+        const matches=findMenuMatches(t);
+        if(matches.length){ orderItems.push(...matches); renderOrder(); const names=matches.map(m=>m.name).join(', '); aiSay(`Added ${names}. Is that all?`); return; }
+        if(/\b(yes|yeah|yep|that'?s it|that is it)\b/.test(t) && orderItems.length){ stage='code'; aiSay('Great. What is your 4 digit rewards number?'); return; }
+        aiSay('Got it. You can say an item like "one Big Burger and fries". Anything else, or is that all?');
+        return;
+      }
+      if(stage==='confirm'){
+        if(/\b(yes|yeah|yep|that'?s all|sure)\b/.test(t)){ stage='code'; aiSay('What is your 4 digit rewards number?'); }
+        else { stage='taking'; handleCustomer(text); }
+        return;
+      }
+      if(stage==='code'){
+        const m=t.match(/\b(\d{4})\b/);
+        if(m){ finalizeWithCode(m[1]); return; }
+        if(/\b(skip|none|guest)\b/.test(t)){ finalizeWithCode('0000'); return; }
+        aiSay('Please tell me your 4 digit rewards number so I can send your receipt. (Or say "skip" for guest.)');
+        return;
+      }
+    }
+
+    function processPhoneMessages(){
+      const d=DT.load(); const chat=(d.driveThruChat||[]).slice().sort((a,b)=>a.at-b.at);
+      chat.forEach(m=>{ if(m.from==='phone' && !processedChat.has(m.id)){ processedChat.add(m.id); handleCustomer(m.text); } });
+    }
+    function setupStt(){
+      const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ $('sttStatus').textContent='STT not supported in this browser.'; $('listenBtn').disabled=true; return; }
+      recognition=new SR(); recognition.lang='en-US'; recognition.interimResults=false; recognition.continuous=false;
+      recognition.onresult=(e)=>{ const text=e.results[0][0].transcript; $('sttStatus').textContent='Heard: '+text; handleCustomer(text); };
+      recognition.onerror=(e)=>{ $('sttStatus').textContent='STT error: '+e.error; listening=false; $('listenBtn').textContent='🎤 Listen (STT)'; };
+      recognition.onend=()=>{ listening=false; $('listenBtn').textContent='🎤 Listen (STT)'; };
+    }
+    $('listenBtn').onclick=()=>{ if(!recognition) return; if(listening){ try{recognition.stop();}catch(e){} return; } try{ recognition.start(); listening=true; $('listenBtn').textContent='⏹ Stop'; $('sttStatus').textContent='Listening...'; }catch(e){ $('sttStatus').textContent='Could not start STT.'; } };
+    $('aiSend').onclick=()=>{ const t=$('aiInput').value; $('aiInput').value=''; handleCustomer(t); };
+    $('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault(); $('aiSend').click();} });
+    $('newOrder').onclick=()=>{ convo=[]; renderConvo(); resetOrder(true); };
+    $('enableTts').onclick=()=>{ ttsEnabled=true; $('status').textContent='Voice enabled. AI will speak responses and listen for orders.'; speak('Drive thru A I ready. Welcome to D S M Donalds. What can I get for you today?'); stage='taking'; };
+    window.addEventListener('dt-update',()=>{ renderPhone(); renderReceipts(); processPhoneMessages(); });
+    window.addEventListener('storage',()=>{ renderPhone(); renderReceipts(); processPhoneMessages(); });
+    setInterval(()=>{ if(DT.getSync()) DT.pullSync(false); processPhoneMessages(); }, 2500);
+    setupStt(); renderConvo(); renderOrder(); renderReceipts(); renderPhone();
     if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
   </script>
 </body>
