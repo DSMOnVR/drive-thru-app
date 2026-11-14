@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="DSMDonalds" />
+  <meta name="theme-color" content="#0f1115" />
+  <title>DSMDonalds App</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="assets/icon.svg" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="app-body">
+  <div id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <div class="app-brand big"><span class="arches">M</span><span>DSMDonalds</span></div>
+      <p class="small" style="text-align:center;margin:6px 0 14px">Sign up or log in to rewards, ordering & wallet.</p>
+      <div class="seg"><button id="showLogin" class="segbtn active">Log In</button><button id="showSignup" class="segbtn">Sign Up</button></div>
+      <div id="loginForm">
+        <label>4-digit Rewards Code</label>
+        <input id="loginCode" maxlength="4" inputmode="numeric" placeholder="1234" />
+        <button class="btn block" id="loginBtn" style="margin-top:12px">Log In</button>
+      </div>
+      <div id="signupForm" style="display:none">
+        <label>Name</label>
+        <input id="suName" placeholder="Your name" />
+        <button class="btn block" id="signupBtn" style="margin-top:12px">Create Account</button>
+      </div>
+      <div id="authMsg" class="small" style="margin-top:10px"></div>
+      <div class="small" style="margin-top:10px"><a href="phone.html">← Phone Home</a></div>
+    </div>
+  </div>
+
+  <div class="app-shell" id="appShell" style="display:none">
+    <header class="app-header">
+      <div class="app-brand"><span class="arches">M</span><span>DSMDonalds</span></div>
+      <a class="user-pill-btn" href="phone.html" style="text-decoration:none;display:inline-flex;align-items:center">Home</a>
+    </header>
+
+    <main class="app-main">
+      <section class="tab-page active" id="tab-rewards">
+        <div class="hero-card">
+          <div class="eyebrow">Rewards Code</div>
+          <div class="code-big" id="codeBig">----</div>
+          <div class="small light">Show this code at the register (4-code)</div>
+          <div class="stats">
+            <div class="stat"><div class="label">Points</div><div class="value" id="pts">0</div></div>
+            <div class="stat"><div class="label">Balance</div><div class="value" id="bal">$0.00</div></div>
+          </div>
+        </div>
+        <div class="section-title">Wallet</div>
+        <div class="wallet app-wallet"><div class="brand">DSM PAY</div><div class="num" id="cardNum">•••• •••• •••• 0000</div><div class="meta"><span id="cardName">Guest</span><span id="cardBal">$0.00</span></div></div>
+        <div class="quick-actions">
+          <button class="quick" data-go="order"><span class="qi">🍔</span><span>Order</span></button>
+          <button class="quick" data-go="scan"><span class="qi">⌁</span><span>Scan & Pay</span></button>
+          <button class="quick" data-go="deals"><span class="qi">★</span><span>Deals</span></button>
+        </div>
+        <div class="panel soft">
+          <div class="section-title small-title">My Redeemed Rewards</div>
+          <ul id="myRewards" class="app-list"></ul>
+        </div>
+      </section>
+
+      <section class="tab-page" id="tab-order">
+        <div class="section-title">Order</div>
+        <div id="orderShop">
+          <div class="panel soft"><div class="small">Order in the app and confirm with your rewards card.</div></div>
+          <div id="orderMenu" class="menu-grid" style="margin-top:10px"></div>
+          <div class="panel soft" style="margin-top:12px">
+            <div class="section-title small-title">Your Cart</div>
+            <div id="orderCart"></div>
+            <div class="total" style="margin-top:8px">Total: <span id="orderTotal">$0.00</span></div>
+            <button class="btn block green" id="orderCheckout" style="margin-top:10px">Review & Confirm</button>
+          </div>
+        </div>
+        <div id="orderConfirm" style="display:none">
+          <div class="panel soft">
+            <div class="section-title small-title">Confirm Order</div>
+            <div id="confirmSummary" class="small"></div>
+            <div class="total" style="margin-top:8px">Total: <span id="confirmTotal">$0.00</span></div>
+            <div class="small" id="confirmCard" style="margin-top:6px"></div>
+            <div class="row" style="margin-top:12px"><button class="btn green block" id="confirmOrderPay">Confirm & Pay</button></div>
+            <button class="btn secondary block" id="backToCart" style="margin-top:8px">Back</button>
+            <div id="confirmMsg" class="small" style="margin-top:8px"></div>
+          </div>
+        </div>
+        <div id="orderReceipt" style="display:none">
+          <div class="panel soft" id="receiptCard"></div>
+          <button class="btn block" id="newOrderBtn" style="margin-top:12px">Start New Order</button>
+        </div>
+      </section>
+
+      <section class="tab-page" id="tab-scan">
+        <div class="section-title">Tap / Scan to Pay</div>
+        <div class="panel soft">
+          <p class="small">Scan the register's Tap to Pay code to pay from your DSM Pay balance.</p>
+          <div class="row"><button class="btn" id="startScan">Start Scan</button><button class="btn secondary" id="stopScan">Stop</button></div>
+          <div id="scanWrap" style="margin-top:10px;display:none"><video id="video" playsinline></video><canvas id="scanCanvas" style="display:none"></canvas></div>
+          <input type="hidden" id="payPaste" />
+          <label style="margin-top:10px">Scan from photo (if camera unavailable)</label>
+          <input id="qrFile" type="file" accept="image/*" />
+          <button class="btn green block" style="margin-top:10px" id="confirmPay">Pay Now</button>
+          <div id="payMsg" class="small" style="margin-top:8px"></div>
+        </div>
+      </section>
+
+      <section class="tab-page" id="tab-deals">
+        <div class="section-title">Deals & Offers</div>
+        <div class="panel soft"><div id="offers" class="small"></div></div>
+      </section>
+
+      <section class="tab-page" id="tab-account">
+        <div class="section-title">Account</div>
+        <div class="panel soft">
+          <div class="small">Signed in as</div>
+          <div style="font-weight:800;font-size:1.2rem" id="acctName">Guest</div>
+          <div class="small" id="acctCode">Rewards code: ----</div>
+          <button class="btn secondary block" id="logoutBtn" style="margin-top:10px">Log Out</button>
+        </div>
+        <div class="panel soft" style="margin-top:10px">
+          <div class="section-title small-title">Cards & Switch</div>
+          <div id="cardSwitcher" style="margin-top:8px"></div>
+        </div>
+        <div class="panel soft" style="margin-top:10px">
+          <a class="btn secondary block" href="admin.html" style="text-align:center;text-decoration:none">Admin</a>
+          <a class="btn secondary block" href="phone.html" style="text-align:center;text-decoration:none;margin-top:8px">Phone Home</a>
+        </div>
+      </section>
+    </main>
+
+    <nav class="tabbar">
+      <button class="tab active" data-tab="rewards"><span class="ico">★</span><span>Rewards</span></button>
+      <button class="tab" data-tab="order"><span class="ico">🍔</span><span>Order</span></button>
+      <button class="tab" data-tab="scan"><span class="ico">⌁</span><span>Scan</span></button>
+      <button class="tab" data-tab="deals"><span class="ico">%</span><span>Deals</span></button>
+      <button class="tab" data-tab="account"><span class="ico">☺</span><span>Account</span></button>
+    </nav>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let stream=null, detector=null, scanTimer=null, orderCart=[], paying=false;
+    const $=id=>document.getElementById(id);
+    function showAuth(show){$('authScreen').style.display=show?'flex':'none'; $('appShell').style.display=show?'none':'block';}
+    function orderTotal(){return orderCart.reduce((s,i)=>s+Number(i.price||0),0)}
+    function renderOrderMenu(){const el=$('orderMenu'); if(!el) return; const d=DT.load(); el.innerHTML=d.menu.map(m=>`<div class="item" data-oid="${m.id}"><img src="${m.img||''}" alt=""><div class="info"><div class="name">${m.name}</div><div class="price">${DT.fmt(m.price)}</div></div></div>`).join('')||'<div class="small">No menu items yet.</div>'; el.querySelectorAll('[data-oid]').forEach(x=>x.onclick=()=>{const item=d.menu.find(i=>i.id===x.dataset.oid); if(!item) return; orderCart.push({id:item.id,name:item.name,price:Number(item.price)}); renderOrderCart();});}
+    function renderOrderCart(){const el=$('orderCart'),tot=$('orderTotal'); if(!el||!tot) return; el.innerHTML=orderCart.map((c,i)=>`<div class="pos-line"><span class="nm">${c.name}</span><span><span class="pr">${DT.fmt(c.price)}</span> <button data-ori="${i}" style="margin-left:8px;background:#2a2f3d;color:#fff;border:0;border-radius:8px;padding:2px 8px">×</button></span></div>`).join('')||'<div class="small">Cart is empty</div>'; el.querySelectorAll('[data-ori]').forEach(b=>b.onclick=()=>{orderCart.splice(Number(b.dataset.ori),1); renderOrderCart();}); tot.textContent=DT.fmt(orderTotal()); const btn=$('orderCheckout'); if(btn) btn.disabled=orderTotal()<=0;}
+    function showOrderView(view){if($('orderShop')) $('orderShop').style.display=view==='shop'?'block':'none'; if($('orderConfirm')) $('orderConfirm').style.display=view==='confirm'?'block':'none'; if($('orderReceipt')) $('orderReceipt').style.display=view==='receipt'?'block':'none';}
+    function showReceipt(r){showOrderView('receipt'); const when=new Date(r.at).toLocaleString(); $('receiptCard').innerHTML=`<div style="text-align:center"><div style="font-weight:900;font-size:1.3rem;color:#fff">Receipt</div><div class="small">DSMDonalds · ${when}</div></div><hr>${r.items.map(i=>`<div class="pos-line"><span class="nm">${i.name}</span><span class="pr">${DT.fmt(i.price)}</span></div>`).join('')}<hr><div class="pos-line"><b>Total</b><b>${DT.fmt(r.total)}</b></div><div class="pos-line"><span>Paid with</span><span>${r.cardName}${r.unlimited?' (Unlimited)':''}</span></div><div class="pos-line"><span>Points earned</span><span>+${r.pointsEarned}</span></div><div class="small" style="margin-top:8px">Receipt #${r.id} · Status: Paid</div>`;}
+    function renderCards(){const wrap=$('cardSwitcher'); if(!wrap) return; const d=DT.load(),cur=DT.currentUser(); wrap.innerHTML=d.users.map(u=>`<button class="btn ${cur&&cur.id===u.id?'':'secondary'} block" data-switch="${u.id}" style="margin-top:8px;text-align:left">${u.name} · ${u.code} · ${u.unlimited?'Unlimited':DT.fmt(u.balance||0)} ${cur&&cur.id===u.id?'(active)':''}</button>`).join('')||'<div class="small">No cards yet.</div>'; wrap.querySelectorAll('[data-switch]').forEach(b=>b.onclick=()=>{DT.setSession({userId:b.dataset.switch}); render();});}
+    function render(){
+      const u=DT.currentUser(); if(!u){showAuth(true); return;} showAuth(false);
+      $('codeBig').textContent=u.code||'----'; $('pts').textContent=u.points||0; const bal=u.unlimited?'Unlimited':DT.fmt(u.balance||0);
+      $('bal').textContent=bal; $('cardNum').textContent='•••• •••• •••• '+(u.cardLast4||String(u.code||'0000').padStart(4,'0')); $('cardName').textContent=u.name||'Guest'; $('cardBal').textContent=bal;
+      $('acctName').textContent=u.name||'Guest'; $('acctCode').textContent='Rewards code: '+(u.code||'----');
+      const d=DT.load();
+      $('offers').innerHTML=d.offers.length?'<ul class="app-list deals">'+d.offers.map(o=>`<li><div><b>${o.title}</b><div class="small">${o.cost} pts${o.desc?' · '+o.desc:''}</div></div><div style="display:flex;gap:6px;align-items:center"><span class="badge">${o.cost}</span><button class="btn secondary" data-redeem="${o.id}" style="padding:6px 10px;font-size:.85rem" ${(u.points||0)<o.cost?'disabled':''}>Redeem</button></div></li>`).join('')+'</ul>':'<div class="small">No offers yet.</div>';
+      document.querySelectorAll('[data-redeem]').forEach(b=>b.onclick=()=>redeemOffer(b.dataset.redeem));
+      const mine=u.offers||[]; $('myRewards').innerHTML=mine.length?mine.map(r=>`<li>${r.title}</li>`).join(''):'<li class="small">No redeemed rewards yet</li>';
+      renderCards(); renderOrderMenu(); renderOrderCart();
+    }
+    function redeemOffer(offerId){const u=DT.currentUser(); if(!u) return; const d=DT.load(),me=d.users.find(x=>x.id===u.id),o=d.offers.find(x=>x.id===offerId); if(!me||!o) return; if((me.points||0)<Number(o.cost||0)){alert('Not enough points');return;} me.points-=Number(o.cost||0); me.offers=me.offers||[]; me.offers.push({id:DT.uid(),title:o.title,redeemedAt:Date.now()}); DT.save(d); alert('Redeemed: '+o.title); render();}
+    $('showLogin').onclick=()=>{$('showLogin').classList.add('active');$('showSignup').classList.remove('active');$('loginForm').style.display='block';$('signupForm').style.display='none';};
+    $('showSignup').onclick=()=>{$('showSignup').classList.add('active');$('showLogin').classList.remove('active');$('signupForm').style.display='block';$('loginForm').style.display='none';};
+    $('loginBtn').onclick=async()=>{if(DT.getSync()) await DT.pullSync(true); const u=DT.getUserByCode($('loginCode').value.trim()); if(!u){$('authMsg').textContent='No account found.';return;} DT.setSession({userId:u.id}); render();};
+    $('signupBtn').onclick=async()=>{const name=$('suName').value.trim()||'Guest'; if(DT.getSync()) await DT.pullSync(true); const d=DT.load(),code=DT.genCode(); const user={id:DT.uid(),name,code,cardLast4:code,balance:0,points:0,offers:[]}; d.users.push(user); DT.save(d); DT.setSession({userId:user.id}); render();};
+    $('logoutBtn').onclick=()=>{DT.logout(); render();};
+    function showTab(name){document.querySelectorAll('.tab-page').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name)); document.querySelectorAll('.tabbar .tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name)); if(name!=='scan') stopScan(); window.scrollTo(0,0);}
+    document.querySelectorAll('.tabbar .tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab)); document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go));
+    $('orderCheckout').onclick=()=>{if(orderTotal()<=0){alert('Add items');return;} const u=DT.currentUser(); if(!u){alert('Log in');return;} $('confirmSummary').innerHTML=orderCart.map(i=>`<div class="pos-line"><span>${i.name}</span><span>${DT.fmt(i.price)}</span></div>`).join(''); $('confirmTotal').textContent=DT.fmt(orderTotal()); $('confirmCard').textContent='Paying with: '+u.name+' · '+(u.unlimited?'Unlimited card':DT.fmt(u.balance||0)); $('confirmMsg').textContent='Confirm in the rewards app to place and pay for your order.'; showOrderView('confirm');};
+    $('backToCart').onclick=()=>showOrderView('shop'); $('newOrderBtn').onclick=()=>{orderCart=[]; renderOrderCart(); showOrderView('shop'); showTab('order');};
+    $('confirmOrderPay').onclick=async()=>{const msg=$('confirmMsg'),u=DT.currentUser(); if(!u){msg.textContent='Log in.';return;} if(DT.getSync()) await DT.pullSync(true); const d=DT.load(),me=d.users.find(x=>x.id===u.id); if(!me){msg.textContent='Account not found.';return;} const total=orderTotal(); if(total<=0){msg.textContent='Cart is empty.';return;} if(!me.unlimited && Number(me.balance||0)<total){msg.textContent='Insufficient balance.';return;} if(!me.unlimited) me.balance=Number(me.balance||0)-total; const ptsEarned=Math.floor(total*(d.rewards.pointsPerDollar||10)); me.points=(me.points||0)+ptsEarned; const receipt={id:'R'+DT.uid(),userId:me.id,cardName:me.name,items:orderCart.map(i=>({name:i.name,price:i.price})),total,unlimited:!!me.unlimited,pointsEarned,at:Date.now(),status:'paid'}; d.receipts=d.receipts||[]; d.receipts.unshift(receipt); d.orders=d.orders||[]; d.orders.unshift({id:'O'+DT.uid(),userId:me.id,items:receipt.items,total,at:receipt.at,status:'confirmed',receiptId:receipt.id}); DT.save(d); orderCart=[]; renderOrderCart(); msg.textContent=''; showReceipt(receipt); render();};
+    async function confirmTapPayment(auto){if(paying) return; const msg=$('payMsg'),u=DT.currentUser(); if(!u){msg.textContent='Log in.';return;} let payload; try{payload=JSON.parse(($('payPaste').value||'').trim());}catch(e){if(!auto) msg.textContent='No payment scanned.';return;} if(!payload||payload.t!=='pay'||!payload.id){if(!auto) msg.textContent='Invalid payment.';return;} paying=true; msg.textContent='Processing...'; try{if(DT.getSync()) await DT.pullSync(true); const d=DT.load(),p=d.pendingPayment; if(!p||p.id!==payload.id||p.status!=='pending'){msg.textContent='No matching Tap to Pay request.'; paying=false; return;} const amt=Number(p.amount||payload.amount||0),me=d.users.find(x=>x.id===u.id); if(!me||(!me.unlimited&&Number(me.balance||0)<amt)){msg.textContent='Insufficient balance.'; paying=false; return;} if(!me.unlimited) me.balance=Number(me.balance||0)-amt; p.status='paid'; p.paidBy=me.id; p.paidAt=Date.now(); d.pendingPayment=p; DT.save(d); msg.textContent='Paid '+DT.fmt(amt)+'.'; $('payPaste').value=''; render();}catch(e){msg.textContent='Failed.';} paying=false;}
+    function handleScanText(text){if(!text||paying) return; $('payPaste').value=text; $('payMsg').textContent='Detected. Processing...'; stopScan(); confirmTapPayment(true);} 
+    async function scanLoop(){const v=$('video'); if(!v||v.readyState<2) return; try{ if(detector){const codes=await detector.detect(v); if(codes&&codes[0]&&codes[0].rawValue){handleScanText(codes[0].rawValue);return;}} if(window.jsQR){const c=$('scanCanvas'); c.width=v.videoWidth; c.height=v.videoHeight; const ctx=c.getContext('2d'); ctx.drawImage(v,0,0,c.width,c.height); const img=ctx.getImageData(0,0,c.width,c.height); const code=jsQR(img.data,img.width,img.height); if(code&&code.data){handleScanText(code.data);return;}} }catch(e){}}
+    async function startScan(){const msg=$('payMsg'); msg.textContent=''; try{ if('BarcodeDetector' in window){try{detector=new BarcodeDetector({formats:['qr_code']});}catch(e){detector=null;}} else detector=null; stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false}); const v=$('video'); v.srcObject=stream; await v.play(); $('scanWrap').style.display='block'; msg.textContent='Scanning...'; scanTimer=setInterval(scanLoop,350);}catch(e){msg.textContent='Camera unavailable. Use photo scan.';}}
+    function stopScan(){if(scanTimer) clearInterval(scanTimer); scanTimer=null; if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null;} if($('scanWrap')) $('scanWrap').style.display='none';}
+    $('startScan').onclick=startScan; $('stopScan').onclick=stopScan; $('confirmPay').onclick=()=>confirmTapPayment(false);
+    $('qrFile').onchange=async(e)=>{const f=e.target.files[0]; if(!f||!window.jsQR) return; const img=new Image(); img.onload=()=>{const c=$('scanCanvas'); c.width=img.width; c.height=img.height; const ctx=c.getContext('2d'); ctx.drawImage(img,0,0); const d=ctx.getImageData(0,0,c.width,c.height); const code=jsQR(d.data,d.width,d.height); if(code&&code.data) handleScanText(code.data); else $('payMsg').textContent='Could not read QR.'; URL.revokeObjectURL(img.src);}; img.src=URL.createObjectURL(f);};
+    window.addEventListener('dt-update',render); window.addEventListener('storage',render); window.addEventListener('dt-session',render);
+    render(); showOrderView('shop');
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+  </script>
+</body>
+</html>
