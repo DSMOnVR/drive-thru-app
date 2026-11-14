@@ -60,35 +60,60 @@
   function getSync(){try{return JSON.parse(localStorage.getItem(SYNC_KEY)||'null')}catch(e){return null}}
   function setSyncCfg(cfg){if(cfg) localStorage.setItem(SYNC_KEY,JSON.stringify(cfg)); else localStorage.removeItem(SYNC_KEY);}
 
-  async function syncFetch(path, opts){
-    const cfg=getSync(); if(!cfg||!cfg.base||!cfg.id) throw new Error('No sync room');
-    const base=cfg.base.replace(/\/$/,'');
-    return fetch(base+'/'+encodeURIComponent(cfg.id), Object.assign({headers:{'Content-Type':'application/json'}}, opts||{}));
+  function syncUrl(cfg){
+    if(!cfg) return '';
+    if(cfg.provider==='pantry') return 'https://getpantry.cloud/apiv1/pantry/'+encodeURIComponent(cfg.id)+'/basket/dsmd_state';
+    return cfg.base.replace(/\/$/,'')+'/'+encodeURIComponent(cfg.id);
   }
   async function createSyncRoom(){
-    // try jsonblob first
     const d=load();
+    // 1) Pantry (CORS-friendly)
+    try{
+      const res=await fetch('https://getpantry.cloud/apiv1/pantry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'dsmdonalds'})});
+      if(res.ok){
+        let id=null; const ct=res.headers.get('content-type')||'';
+        if(ct.includes('application/json')){ const j=await res.json(); id=j.pantryId||j.id||j; if(typeof id==='object') id=id.pantryId||id.id; }
+        else { id=(await res.text()).trim().replace(/^"|"$/g,''); }
+        if(id && typeof id==='string'){
+          const cfg={provider:'pantry',id}; setSyncCfg(cfg);
+          await fetch(syncUrl(cfg),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+          await pushSync(); startSync(); return cfg;
+        }
+      }
+    }catch(e){}
+    // 2) jsonblob
     try{
       const res=await fetch('https://jsonblob.com/api/jsonBlob',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(d)});
       if(res.ok){let id=null; const loc=res.headers.get('Location')||res.headers.get('location'); if(loc){id=loc.split('/').pop()} else {try{const j=await res.clone().json(); id=j.id||j.blobId||null;}catch(e){}} if(id){const cfg={provider:'jsonblob',base:'https://jsonblob.com/api/jsonBlob',id}; setSyncCfg(cfg); startSync(); return cfg;}}
     }catch(e){}
-    // fallback: pantry-like manual not available; fallback to npoint not creatable anonymously reliably -> generate local room code using jsonstorage.net
+    // 3) jsonstorage
     try{
       const res=await fetch('https://jsonstorage.net/api/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
       if(res.ok){const j=await res.json(); const uri=j.uri||''; const id=uri.split('/').pop(); if(id){const cfg={provider:'jsonstorage',base:'https://jsonstorage.net/api/items',id}; setSyncCfg(cfg); startSync(); return cfg;}}
     }catch(e){}
-    throw new Error('Could not create sync room (network/CORS). You can still use Export/Import in Admin.');
+    throw new Error('Could not create sync room (network/CORS blocked). Use Admin → Manual Export/Import, or try again on a different network.');
   }
   async function joinSyncRoom(id, provider){
-    id=String(id||'').trim(); if(!id) throw new Error('Enter a sync ID');
-    provider=provider||(/^[a-f0-9\-]{20,}$/i.test(id)?'jsonstorage':'jsonblob');
-    const cfg={provider,base:provider==='jsonstorage'?'https://jsonstorage.net/api/items':'https://jsonblob.com/api/jsonBlob',id};
-    setSyncCfg(cfg); await pullSync(true); startSync(); return cfg;
+    id=String(id||'').trim(); if(!id) throw new Error('Enter a Sync ID');
+    if(!provider){
+      if(id.indexOf('-')>-1 && id.length>20) provider='pantry';
+      else if(/^[a-f0-9]{32,}$/i.test(id)) provider='jsonstorage';
+      else provider='jsonblob';
+    }
+    let cfg;
+    if(provider==='pantry') cfg={provider:'pantry',id};
+    else if(provider==='jsonstorage') cfg={provider:'jsonstorage',base:'https://jsonstorage.net/api/items',id};
+    else cfg={provider:'jsonblob',base:'https://jsonblob.com/api/jsonBlob',id};
+    setSyncCfg(cfg);
+    try{ await pullSync(true); }catch(e){}
+    // if pantry basket missing, seed it
+    if(provider==='pantry'){ try{ await pushSync(); }catch(e){} }
+    startSync(); return cfg;
   }
   async function pullSync(force){
     const cfg=getSync(); if(!cfg) return;
     try{
-      const res=await fetch(cfg.base.replace(/\/$/,'')+'/'+encodeURIComponent(cfg.id),{headers:{'Accept':'application/json'}});
+      const res=await fetch(syncUrl(cfg),{headers:{'Accept':'application/json'}});
       if(!res.ok) return;
       const remote=normalize(await res.json());
       const local=load();
@@ -105,7 +130,12 @@
     pushing=true;
     try{
       const d=load();
-      await fetch(cfg.base.replace(/\/$/,'')+'/'+encodeURIComponent(cfg.id),{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(d)});
+      const url=syncUrl(cfg);
+      const method = cfg.provider==='pantry' ? 'PUT' : 'PUT';
+      let res=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(d)});
+      if(cfg.provider==='pantry' && res.status===404){
+        await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+      }
     }catch(e){} finally{pushing=false;}
   }
   function startSync(){ if(syncTimer) clearInterval(syncTimer); if(getSync()){ pullSync(true); syncTimer=setInterval(()=>pullSync(false), 4000);} }
