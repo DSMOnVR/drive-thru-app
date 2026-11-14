@@ -215,10 +215,16 @@
     $('startScan').onclick=startScan; $('stopScan').onclick=stopScan; $('confirmPay').onclick=()=>confirmTapPayment(false);
     $('qrFile').onchange=async(e)=>{const f=e.target.files[0]; if(!f||!window.jsQR) return; const img=new Image(); img.onload=()=>{const c=$('scanCanvas'); c.width=img.width; c.height=img.height; const ctx=c.getContext('2d'); ctx.drawImage(img,0,0); const d=ctx.getImageData(0,0,c.width,c.height); const code=jsQR(d.data,d.width,d.height); if(code&&code.data) handleScanText(code.data); else $('payMsg').textContent='Could not read QR.'; URL.revokeObjectURL(img.src);}; img.src=URL.createObjectURL(f);};
 
-    $('callRestaurant').onclick=()=>{
-      $('callStatus').textContent='Calling DSMDonalds...';
+    function showPlaceSheet(show){$('placeSheet').style.display=show?'block':'none';}
+    $('restaurantPin').onclick=()=>{showPlaceSheet(true);};
+    $('closePlace').onclick=()=>{showPlaceSheet(false); $('callPanel').style.display='none'; $('reviewsPanel').style.display='none';};
+    $('placeCall').onclick=()=>{
+      $('callPanel').style.display='block'; $('reviewsPanel').style.display='none';
+      $('callStatus').textContent='Calling DSMDonalds...'; $('callBox').style.display='none';
       setTimeout(()=>{ $('callStatus').textContent='Connected to DSMDonalds drive-thru.'; $('callBox').style.display='block'; }, 1200);
     };
+    $('placeOrder').onclick=()=>{ showTab('order'); showPlaceSheet(false); $('callPanel').style.display='none'; };
+    $('placeReviews').onclick=()=>{ $('reviewsPanel').style.display=$('reviewsPanel').style.display==='none'?'block':'none'; $('callPanel').style.display='none'; };
     $('addCartToCall').onclick=()=>{
       if(!orderCart.length){ $('callStatus').textContent='Cart is empty. Add items in Order first.'; return; }
       const text=orderCart.map(i=>i.name).join(', ');
