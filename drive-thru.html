@@ -71,7 +71,8 @@
   <script>
     const $=id=>document.getElementById(id);
     let ttsEnabled=false, recognition=null, listening=false;
-    let convo=[], processedChat=new Set(), orderItems=[], stage='greet', pendingUser=null; // greet,taking,confirm,code,done
+    let convo=[], processedChat=new Set(), orderItems=[], stage='greet', pendingUser=null, seenChatCount=-1; // greet,taking,confirm,code,done
+    function initProcessed(){ const d=DT.load(); processedChat=new Set((d.driveThruChat||[]).filter(m=>m.from==='phone').map(m=>m.id)); seenChatCount=(d.driveThruChat||[]).length; }
     function speak(text){ if(!text) return; pushConvo('ai',text); if(ttsEnabled && 'speechSynthesis' in window){ window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=1; window.speechSynthesis.speak(u);} }
     function pushConvo(who,text){ convo.push({who,text,at:Date.now()}); if(convo.length>80) convo=convo.slice(-80); renderConvo(); }
     function renderConvo(){ $('aiChat').innerHTML=convo.map(m=>`<div class="bubble ${m.who==='ai'?'ai':'cust'}"><div class="meta">${m.who==='ai'?'Drive-Thru AI':'Customer'} · ${new Date(m.at).toLocaleTimeString()}</div><div>${String(m.text).replace(/</g,'&lt;')}</div></div>`).join('')||'<div class="meta">No conversation yet.</div>'; $('aiChat').scrollTop=$('aiChat').scrollHeight; }
@@ -139,6 +140,11 @@
 
     function processPhoneMessages(){
       const d=DT.load(); const chat=(d.driveThruChat||[]).slice().sort((a,b)=>a.at-b.at);
+      if(chat.length===0 && (seenChatCount>0 || convo.length>0)){
+        // chat cleared (new call/session) - reset AI state for fresh conversation
+        convo=[]; orderItems=[]; stage='greet'; pendingUser=null; processedChat=new Set(); renderConvo(); renderOrder();
+      }
+      seenChatCount=chat.length;
       chat.forEach(m=>{ if(m.from==='phone' && !processedChat.has(m.id)){ processedChat.add(m.id); handleCustomer(m.text); } });
     }
     function setupStt(){
@@ -156,7 +162,7 @@
     window.addEventListener('dt-update',()=>{ renderPhone(); renderReceipts(); processPhoneMessages(); });
     window.addEventListener('storage',()=>{ renderPhone(); renderReceipts(); processPhoneMessages(); });
     setInterval(()=>{ if(DT.getSync()) DT.pullSync(false); processPhoneMessages(); }, 2500);
-    setupStt(); renderConvo(); renderOrder(); renderReceipts(); renderPhone();
+    initProcessed(); setupStt(); renderConvo(); renderOrder(); renderReceipts(); renderPhone();
     if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
   </script>
 </body>

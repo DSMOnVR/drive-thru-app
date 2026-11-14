@@ -186,7 +186,9 @@
         if(type==='dsm'){
           $('callState').textContent='Connected';
           const greet='Thank you for calling D S M Donalds. What would you like to order?';
-          const d=DT.load(); d.driveThruChat=d.driveThruChat||[]; d.driveThruChat.push({id:DT.uid(),at:Date.now(),from:'pc',text:greet}); DT.save(d); renderDsmChat();
+          if(DT.getSync()) await DT.pullSync(true);
+          const d=DT.load(); d.driveThruChat=[{id:DT.uid(),at:Date.now(),from:'pc',text:greet}]; heardChat=new Set();
+          DT.save(d); renderDsmChat();
         } else if(type==='p2p'){
           if(!mu){ $('callState').textContent='Log in required'; appendMsg('System','Log in with your rewards code to make user-to-user calls.'); return; }
           $('callPills').innerHTML='<span class="pill">TTS</span><span class="pill">STT</span><span class="pill">Sync user call</span>';
@@ -207,6 +209,7 @@
     function endCall(){
       if(timerInt) clearInterval(timerInt); timerInt=null; if(listening&&recognition){try{recognition.stop();}catch(e){}}
       if(currentCallee && currentCallee.type==='p2p' && currentCallee.callId){ const d=DT.load(); const c=(d.phoneCalls||[]).find(x=>x.id===currentCallee.callId); if(c && c.status!=='ended'){ c.status='ended'; c.updatedAt=Date.now(); DT.save(d);} }
+      if(currentCallee && currentCallee.type==='dsm'){ const d=DT.load(); d.driveThruChat=[]; DT.save(d); heardChat=new Set(); }
       $('inCallView').style.display='none'; $('dialerView').style.display='block'; speak('Call ended.'); currentCallee=null; $('incoming').style.display='none';
     }
     $('dialBtn').onclick=()=>{ if(!String(number||'').trim()){alert('Enter a number or code'); return;} startCall(number, null, null, null); };
