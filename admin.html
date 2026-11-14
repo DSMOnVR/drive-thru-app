@@ -41,8 +41,16 @@
         <label>Points per $1</label><input id="ppd" type="number" step="1" />
         <button class="btn" style="margin-top:10px" id="saveRewards">Save Settings</button>
         <hr>
-        <h3 style="margin:0 0 8px">Data / Notes</h3>
-        <p class="small">Data is stored in this browser's localStorage. For PC register + iPhone phone app on different devices with static hosting, open Admin/Phone/Register on the same device for shared data, or recreate accounts/codes on each device. Payment QR scan works best when register and phone share context; you can also manually complete phone payment by matching pending payment if same browser storage is used. Menu items added on Menu Board are saved per device/browser.</p>
+        <h3 style="margin:0 0 8px">Data / Sync (Export & Import)</h3>
+        <p class="small">Data is stored in this browser's localStorage (per device). To sync between PC and iPhone on static hosting, export from one device and import on the other.</p>
+        <label>Export / Import JSON</label>
+        <textarea id="syncData" rows="6" placeholder="Click Export to generate data, copy it to another device, then paste and Import."></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn secondary" id="exportData">Export</button>
+          <button class="btn secondary" id="copyData">Copy</button>
+          <button class="btn" id="importData">Import (Replace)</button>
+        </div>
+        <hr>
         <button class="btn danger" id="reset">Reset Demo Data</button>
       </div>
     </div>
@@ -89,6 +97,15 @@
       document.getElementById('oTitle').value=''; document.getElementById('oCost').value=''; document.getElementById('oDesc').value=''; render();
     };
     document.getElementById('saveRewards').onclick=()=>{const d=DT.load(); d.rewards.pointsPerDollar=parseInt(document.getElementById('ppd').value||'10',10)||10; DT.save(d); alert('Saved');};
+    document.getElementById('exportData').onclick=()=>{const data=localStorage.getItem(DT.KEY)||JSON.stringify(DT.load()); document.getElementById('syncData').value=data;};
+    document.getElementById('copyData').onclick=async()=>{const t=document.getElementById('syncData'); if(!t.value) document.getElementById('exportData').click(); t.select(); try{await navigator.clipboard.writeText(t.value); alert('Copied');}catch(e){document.execCommand('copy'); alert('Copied (fallback)');}};
+    document.getElementById('importData').onclick=()=>{
+      const raw=document.getElementById('syncData').value.trim(); if(!raw){alert('Paste exported JSON first'); return;}
+      try{const d=JSON.parse(raw); if(!d || typeof d!=='object' || !Array.isArray(d.menu) || !Array.isArray(d.users)) throw new Error('Invalid data');
+        if(!confirm('Replace all data on this device with imported data?')) return;
+        localStorage.setItem(DT.KEY, JSON.stringify(d)); alert('Imported. Reloading...'); location.reload();
+      }catch(e){alert('Import failed: '+e.message);}
+    };
     document.getElementById('reset').onclick=()=>{if(confirm('Reset all demo data?')){localStorage.removeItem(DT.KEY); DT.seed(); render();}};
     window.addEventListener('storage',render); render();
   </script>

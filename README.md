@@ -23,8 +23,8 @@ Browser-based DSMDonalds drive-thru demo with a **PC register/menu** and an **iP
 ## Important notes (static hosting)
 - Data is stored in **browser localStorage** (`dt_app_v1`), so it is **per device/browser**. A PC and a separate iPhone will not automatically share the same localStorage over static hosting.
   - For a full demo on one machine, open Register/Menu/Phone in the same browser/profile.
-  - For cross-device use, create matching users/codes in Admin on each device, or adapt the app to a shared backend (e.g. Firebase/Supabase) later.
-- Menu items added via **Ctrl+Shift+E** are saved in that browser's storage.
+  - For cross-device use, use **Admin → Data / Sync (Export & Import)** to copy data (users/cards, points, offers, menu, settings) from one device and import on the other, or adapt the app to a shared backend (e.g. Firebase/Supabase) for automatic real-time sync.
+- Menu items added via **Ctrl+Shift+E** are saved in that browser's storage (included in export/import).
 
 ## IPA / signing
 A signed `.ipa` cannot be produced on Windows without macOS/Xcode. This repo provides the web app you can host on GitHub and use/install on iPhone via Safari. If you need a native wrapper, you can later wrap this folder with a tool like Capacitor on a Mac to build an IPA and sign it with your own signing setup.
