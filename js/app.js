@@ -21,13 +21,16 @@
       ],
       rewards:{pointsPerDollar:10,redeemCost:200,redeemReward:'Free Fries'},
       offers:[{id:uid(),title:'Free Fries',cost:200,desc:'Redeem 200 pts for a free fries'}],
-      pendingPayment:null
+      pendingPayment:null,
+      orders:[],
+      receipts:[]
     };
   }
   function seed(){const s=defaultData(); localStorage.setItem(KEY,JSON.stringify(s)); return s;}
   function normalize(d){
     if(!d||typeof d!=='object') return seed();
     d.menu=Array.isArray(d.menu)?d.menu:[]; d.users=Array.isArray(d.users)?d.users:[]; d.offers=Array.isArray(d.offers)?d.offers:[];
+    d.orders=Array.isArray(d.orders)?d.orders:[]; d.receipts=Array.isArray(d.receipts)?d.receipts:[];
     d.rewards=d.rewards||{pointsPerDollar:10,redeemCost:200,redeemReward:'Free Fries'};
     if(typeof d._ts!=='number') d._ts=Date.now();
     if(!d.menu.length && !d.users.length){ return Object.assign(d, defaultData(), {_ts:d._ts||Date.now()}); }
