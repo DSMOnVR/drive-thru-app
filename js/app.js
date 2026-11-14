@@ -63,20 +63,32 @@
   function syncUrl(cfg){
     if(!cfg) return '';
     if(cfg.provider==='pantry') return 'https://getpantry.cloud/apiv1/pantry/'+encodeURIComponent(cfg.id)+'/basket/dsmd_state';
-    return cfg.base.replace(/\/$/,'')+'/'+encodeURIComponent(cfg.id);
+    if(cfg.provider==='gist') return 'https://api.github.com/gists/'+encodeURIComponent(cfg.id);
+    return (cfg.base||'').replace(/\/$/,'')+'/'+encodeURIComponent(cfg.id||'');
   }
-  async function createSyncRoom(){
-    const d=load();
-    // 1) Pantry (CORS-friendly)
+  async function ghFetch(cfg, opts){
+    opts=opts||{}; const h=Object.assign({'Accept':'application/vnd.github+json'}, opts.headers||{});
+    if(cfg.token) h['Authorization']='Bearer '+cfg.token;
+    return fetch(syncUrl(cfg), Object.assign({}, opts, {headers:h}));
+  }
+  async function createSyncRoom(opts){
+    opts=opts||{}; const d=load();
+    if(opts.provider==='gist'){
+      if(!opts.token) throw new Error('GitHub token required to create gist sync.');
+      const res=await fetch('https://api.github.com/gists',{method:'POST',headers:{'Accept':'application/vnd.github+json','Authorization':'Bearer '+opts.token,'Content-Type':'application/json'},body:JSON.stringify({description:'DSMDonalds sync',public:false,files:{'dsmd_state.json':{content:JSON.stringify(d)}}})});
+      if(!res.ok){ let msg='GitHub gist create failed'; try{const j=await res.json(); msg=j.message||msg;}catch(e){} throw new Error(msg+' (check token permissions: gist).'); }
+      const j=await res.json(); const cfg={provider:'gist',id:j.id,token:opts.token}; setSyncCfg(cfg); startSync(); return cfg;
+    }
+    // 1) Pantry
     try{
       const res=await fetch('https://getpantry.cloud/apiv1/pantry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'dsmdonalds'})});
       if(res.ok){
         let id=null; const ct=res.headers.get('content-type')||'';
-        if(ct.includes('application/json')){ const j=await res.json(); id=j.pantryId||j.id||j; if(typeof id==='object') id=id.pantryId||id.id; }
+        if(ct.includes('application/json')){ const j=await res.json(); id=j.pantryId||j.id||j; if(id&&typeof id==='object') id=id.pantryId||id.id; }
         else { id=(await res.text()).trim().replace(/^"|"$/g,''); }
         if(id && typeof id==='string'){
           const cfg={provider:'pantry',id}; setSyncCfg(cfg);
-          await fetch(syncUrl(cfg),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+          await fetch(syncUrl(cfg),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).catch(()=>{});
           await pushSync(); startSync(); return cfg;
         }
       }
@@ -91,31 +103,41 @@
       const res=await fetch('https://jsonstorage.net/api/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
       if(res.ok){const j=await res.json(); const uri=j.uri||''; const id=uri.split('/').pop(); if(id){const cfg={provider:'jsonstorage',base:'https://jsonstorage.net/api/items',id}; setSyncCfg(cfg); startSync(); return cfg;}}
     }catch(e){}
-    throw new Error('Could not create sync room (network/CORS blocked). Use Admin → Manual Export/Import, or try again on a different network.');
+    throw new Error('Could not create sync room (network/CORS blocked). Try GitHub Gist sync in Admin (works with a GitHub token), or use Manual Export/Import.');
   }
-  async function joinSyncRoom(id, provider){
-    id=String(id||'').trim(); if(!id) throw new Error('Enter a Sync ID');
+  async function joinSyncRoom(id, provider, opts){
+    opts=opts||{}; id=String(id||'').trim(); if(!id) throw new Error('Enter a Sync ID');
     if(!provider){
-      if(id.indexOf('-')>-1 && id.length>20) provider='pantry';
+      if(opts.token || /^[a-f0-9]{20,}$/i.test(id) && id.length>=20 && opts.forceGist) provider='gist';
+      else if(id.indexOf('-')>-1 && id.length>20) provider='pantry';
       else if(/^[a-f0-9]{32,}$/i.test(id)) provider='jsonstorage';
       else provider='jsonblob';
     }
     let cfg;
-    if(provider==='pantry') cfg={provider:'pantry',id};
+    if(provider==='gist') cfg={provider:'gist',id,token:opts.token||''};
+    else if(provider==='pantry') cfg={provider:'pantry',id};
     else if(provider==='jsonstorage') cfg={provider:'jsonstorage',base:'https://jsonstorage.net/api/items',id};
     else cfg={provider:'jsonblob',base:'https://jsonblob.com/api/jsonBlob',id};
     setSyncCfg(cfg);
     try{ await pullSync(true); }catch(e){}
-    // if pantry basket missing, seed it
-    if(provider==='pantry'){ try{ await pushSync(); }catch(e){} }
+    if(provider==='pantry' || provider==='gist'){ try{ await pushSync(); }catch(e){} }
     startSync(); return cfg;
   }
   async function pullSync(force){
     const cfg=getSync(); if(!cfg) return;
     try{
-      const res=await fetch(syncUrl(cfg),{headers:{'Accept':'application/json'}});
-      if(!res.ok) return;
-      const remote=normalize(await res.json());
+      let remoteRaw;
+      if(cfg.provider==='gist'){
+        const res=await ghFetch(cfg,{method:'GET'}); if(!res.ok) return;
+        const j=await res.json(); const f=j.files&&j.files['dsmd_state.json']; if(!f) return;
+        remoteRaw = f.truncated ? null : JSON.parse(f.content||'{}');
+        if(!remoteRaw && f.raw_url){ const r2=await fetch(f.raw_url); if(r2.ok) remoteRaw=await r2.json(); }
+        if(!remoteRaw) return;
+      } else {
+        const res=await fetch(syncUrl(cfg),{headers:{'Accept':'application/json'}}); if(!res.ok) return;
+        remoteRaw=await res.json();
+      }
+      const remote=normalize(remoteRaw);
       const local=load();
       if(force || (remote._ts||0) > (local._ts||0)){
         applyingRemote=true; localStorage.setItem(KEY,JSON.stringify(remote)); applyingRemote=false;
@@ -130,11 +152,15 @@
     pushing=true;
     try{
       const d=load();
-      const url=syncUrl(cfg);
-      const method = cfg.provider==='pantry' ? 'PUT' : 'PUT';
-      let res=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(d)});
-      if(cfg.provider==='pantry' && res.status===404){
-        await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+      if(cfg.provider==='gist'){
+        if(!cfg.token) return; // read-only without token
+        await ghFetch(cfg,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({files:{'dsmd_state.json':{content:JSON.stringify(d)}}})});
+      } else {
+        const url=syncUrl(cfg);
+        let res=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(d)});
+        if(cfg.provider==='pantry' && res.status===404){
+          await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+        }
       }
     }catch(e){} finally{pushing=false;}
   }
