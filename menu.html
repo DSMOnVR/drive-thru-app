@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body class="board">
-  <div class="hero"><h1>Menu</h1><div class="small" style="color:#ffd">Fresh, fast, and tasty. <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">E</span> to add items (admin).</div></div>
+  <div class="hero"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><h1>Menu</h1><div class="small" style="color:#ffd">Fresh, fast, and tasty. <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">E</span> to add items (admin).</div></div><button class="btn" id="openAdd">+ Add Item</button></div></div>
   <div class="cats" id="cats"></div>
   <div class="grid" id="menuGrid"></div>
 
@@ -40,10 +40,12 @@
       const items=d.menu.filter(m=>activeCat==='All'||(m.category||'Other')===activeCat);
       document.getElementById('menuGrid').innerHTML=items.map(m=>`
         <div class="tile"><img src="${m.img||'https://via.placeholder.com/400x240?text=Item'}" alt=""><div class="info"><div class="name">${m.name}</div><div class="price">${DT.fmt(m.price)}</div></div></div>
-      `).join('') || '<div style="padding:20px;color:#bbb">No items yet. Press Ctrl+Shift+E to add.</div>';
+      `).join('') || '<div style="padding:20px;color:#bbb">No items yet. Click <b>+ Add Item</b> or press Ctrl+Shift+E.</div>';
     }
     const modal=document.getElementById('addModal');
-    window.addEventListener('keydown',e=>{if(e.ctrlKey && e.shiftKey && (e.key==='e'||e.key==='E')){e.preventDefault(); modal.classList.add('open'); document.getElementById('mName').focus();}});
+    function openAdd(){ modal.classList.add('open'); document.getElementById('mName').focus(); }
+    window.addEventListener('keydown',e=>{if(e.ctrlKey && e.shiftKey && (e.key==='e'||e.key==='E')){e.preventDefault(); openAdd();}});
+    document.getElementById('openAdd').onclick=openAdd;
     document.getElementById('closeAdd').onclick=()=>modal.classList.remove('open');
     modal.addEventListener('click',e=>{if(e.target===modal) modal.classList.remove('open')});
     async function fileToDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file);});}
@@ -55,7 +57,7 @@
       const file=document.getElementById('mFile').files[0];
       if(!name){alert('Enter a name'); return;}
       if(file){try{img=await fileToDataUrl(file);}catch(e){}}
-      DT.addMenuItem({id:DT.uid(),name,category:cat,price,isNaN(price)?0:price,img:img||'https://via.placeholder.com/400x240?text=Item'});
+      DT.addMenuItem({id:DT.uid(),name,category:cat,price:(isNaN(price)?0:price),img:img||'https://via.placeholder.com/400x240?text=Item'});
       document.getElementById('mName').value=''; document.getElementById('mPrice').value=''; document.getElementById('mImg').value=''; document.getElementById('mFile').value='';
       modal.classList.remove('open'); render();
     };
