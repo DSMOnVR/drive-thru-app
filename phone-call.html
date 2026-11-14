@@ -18,8 +18,10 @@
     .call-btn{width:64px;height:64px;border-radius:50%;border:0;font-size:1.4rem;cursor:pointer;color:#fff}
     .call-green{background:#1f8f4e}.call-red{background:#d9232e}.call-gray{background:#2a2f3d}
     .incall{display:none;text-align:center}
-    .avatar{width:84px;height:84px;border-radius:50%;background:#c8102e;color:#fff;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:900;margin:10px auto}
+    .avatar{width:84px;height:84px;border-radius:50%;background:#3b82f6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:900;margin:10px auto}
+    .avatar.dsm{background:#c8102e}
     .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#1c2030;border:1px solid #2a2f3d;color:#cfd6e6;font-size:.8rem;margin:4px}
+    .contact-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)} .contact-row:last-child{border-bottom:0}
   </style>
 </head>
 <body class="app-body">
@@ -30,7 +32,7 @@
     </header>
     <main class="app-main">
       <div id="dialerView">
-        <div class="section-title">Dial DSMDonalds</div>
+        <div class="section-title">Phone</div>
         <div class="panel soft">
           <div class="dial-display" id="numberDisplay"></div>
           <div class="keypad" id="keypad"></div>
@@ -39,28 +41,35 @@
             <button class="call-btn call-green" id="dialBtn" title="Call">📞</button>
             <button class="call-btn call-gray" id="clearBtn" title="Clear">C</button>
           </div>
-          <div class="small" style="text-align:center;margin-top:10px">Dial <b>1800-DSM</b> (1800376) or tap a contact below.</div>
+          <div class="small" style="text-align:center;margin-top:10px">Dial any number to call someone, or call <b>DSMDonalds</b> (1800-DSM / 1800376).</div>
         </div>
         <div class="panel soft" style="margin-top:12px">
           <div class="section-title small-title">Contacts</div>
-          <button class="btn block" id="callDsm" style="text-align:left">DSMDonalds · Drive-Thru <span class="small" style="display:block">1800-DSM · Call to place an order (TTS/STT)</span></button>
+          <div id="contactsList"></div>
+          <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+            <div class="small" style="margin-bottom:6px">Add contact</div>
+            <input id="newContactName" placeholder="Name" style="margin-bottom:6px" />
+            <input id="newContactNumber" placeholder="Number" />
+            <button class="btn secondary block" id="addContactBtn" style="margin-top:8px">Add Contact</button>
+          </div>
         </div>
       </div>
 
       <div id="inCallView" class="incall">
-        <div class="avatar">M</div>
-        <div style="font-size:1.4rem;font-weight:800;color:#fff">DSMDonalds Drive-Thru</div>
+        <div id="callAvatar" class="avatar">?</div>
+        <div id="callName" style="font-size:1.4rem;font-weight:800;color:#fff">Contact</div>
+        <div id="callNumberLabel" class="small" style="margin-top:2px"></div>
         <div id="callState" class="small" style="margin-top:4px">Calling...</div>
         <div id="callTimer" class="small" style="margin-top:2px"></div>
         <div class="panel soft" style="margin-top:14px;text-align:left">
-          <div class="section-title small-title">Live Order (TTS + STT)</div>
-          <div><span class="pill">TTS</span><span class="pill">STT</span><span class="pill">Sends to PC</span></div>
-          <div id="assistantText" class="small" style="margin-top:8px"></div>
-          <textarea id="orderText" rows="3" placeholder="Your order will appear here..." style="width:100%;margin-top:8px;border-radius:10px;border:1px solid #2a2f3d;background:#0f1115;color:#fff;padding:10px"></textarea>
+          <div class="section-title small-title" id="callPanelTitle">Call (TTS + STT)</div>
+          <div id="callPills"><span class="pill">TTS</span><span class="pill">STT</span></div>
+          <div id="assistantText" style="margin-top:8px;max-height:180px;overflow:auto"></div>
+          <textarea id="orderText" rows="3" placeholder="Say or type a message..." style="width:100%;margin-top:8px;border-radius:10px;border:1px solid #2a2f3d;background:#0f1115;color:#fff;padding:10px"></textarea>
           <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
-            <button class="btn secondary" id="sttBtn">🎤 Speak Order (STT)</button>
-            <button class="btn secondary" id="ttsBtn">🔊 Read Back (TTS)</button>
-            <button class="btn" id="sendPcBtn">Send to PC (TTS)</button>
+            <button class="btn secondary" id="sttBtn">🎤 Speak (STT)</button>
+            <button class="btn secondary" id="ttsBtn">🔊 Read Aloud (TTS)</button>
+            <button class="btn" id="sendPcBtn">Send</button>
           </div>
           <div id="sttStatus" class="small" style="margin-top:8px"></div>
         </div>
@@ -74,8 +83,31 @@
   <script src="js/app.js"></script>
   <script>
     const $=id=>document.getElementById(id);
-    let number='', callSeconds=0, timerInt=null, recognition=null, listening=false, heardChat=new Set();
+    let number='', callSeconds=0, timerInt=null, recognition=null, listening=false, heardChat=new Set(), currentCallee=null;
+    const CONTACTS_KEY='dt_phone_contacts_v1';
     const keys=[['1',''],['2','ABC'],['3','DEF'],['4','GHI'],['5','JKL'],['6','MNO'],['7','PQRS'],['8','TUV'],['9','WXYZ'],['*',''],['0','+'],['#','']];
+    function normalizeNum(n){return String(n||'').toLowerCase().replace(/[^a-z0-9+]/g,'');}
+    function isDsm(n){const x=normalizeNum(n); return x==='1800dsm'||x==='1800376'||x==='18000376';}
+    function loadContacts(){try{return JSON.parse(localStorage.getItem(CONTACTS_KEY)||'[]')||[]}catch(e){return []}}
+    function saveContacts(c){localStorage.setItem(CONTACTS_KEY,JSON.stringify(c||[]));}
+    function getAllContacts(){
+      const base=[{name:'DSMDonalds Drive-Thru',number:'1800-DSM',dsm:true}];
+      const saved=loadContacts();
+      let users=[]; try{ if(window.DT){ users=(DT.load().users||[]).filter(u=>!isDsm(u.code)&&!isDsm(u.name)).map(u=>({name:u.name||'User',number:String(u.code||u.id||''),userId:u.id})); } }catch(e){}
+      const map=new Map();
+      [...base,...saved,...users].forEach(c=>{ if(!c||!c.name) return; const key=normalizeNum(c.number||c.name); if(!key) return; if(!map.has(key)) map.set(key,c); });
+      return Array.from(map.values());
+    }
+    function renderContacts(){
+      const list=getAllContacts();
+      $('contactsList').innerHTML=list.map(c=>`<div class="contact-row"><div><div style="font-weight:700;color:#fff">${c.name}</div><div class="small">${c.number||''}${c.dsm?' · Restaurant (PC TTS/STT)':''}</div></div><button class="btn secondary" data-call="${encodeURIComponent(c.number||c.name)}" data-name="${encodeURIComponent(c.name)}" data-dsm="${c.dsm?'1':'0'}" style="padding:8px 12px">Call</button></div>`).join('') || '<div class="small">No contacts yet.</div>';
+      document.querySelectorAll('[data-call]').forEach(b=>b.onclick=()=>startCall(decodeURIComponent(b.dataset.call), decodeURIComponent(b.dataset.name), b.dataset.dsm==='1'));
+    }
+    $('addContactBtn').onclick=()=>{
+      const name=($('newContactName').value||'').trim(); const num=($('newContactNumber').value||'').trim();
+      if(!name||!num){ alert('Enter name and number'); return; }
+      const c=loadContacts(); c.unshift({name,number:num}); saveContacts(c); $('newContactName').value=''; $('newContactNumber').value=''; renderContacts();
+    };
     function renderNumber(){$('numberDisplay').textContent=number||' '; }
     keys.forEach(k=>{const b=document.createElement('button'); b.className='key'; b.innerHTML=k[0]+(k[1]?`<small>${k[1]}</small>`:''); b.onclick=()=>{number+=k[0]; renderNumber();}; $('keypad').appendChild(b);});
     $('backspace').onclick=()=>{number=number.slice(0,-1); renderNumber();};
@@ -84,61 +116,84 @@
 
     function speak(text){ if(!('speechSynthesis' in window)) return; window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=1; window.speechSynthesis.speak(u); }
     function renderChat(){
+      if(!currentCallee || !currentCallee.dsm) return;
       const d=DT.load(); const chat=(d.driveThruChat||[]).slice().sort((a,b)=>a.at-b.at);
       const box=$('assistantText');
-      box.innerHTML = chat.map(m=>`<div style="margin-top:6px"><b>${m.from==='pc'?'DSMDonalds (PC)':'You'}</b>: ${(m.text||'').replace(/</g,'&lt;')}</div>`).join('') || box.innerHTML;
+      box.innerHTML = chat.map(m=>`<div style="margin-top:6px"><b>${m.from==='pc'?'DSMDonalds (PC)':'You'}</b>: ${(m.text||'').replace(/</g,'&lt;')}</div>`).join('') || '<div class="small">Connected.</div>';
       chat.forEach(m=>{ if(m.from==='pc' && !heardChat.has(m.id)){ heardChat.add(m.id); if($('inCallView').style.display!=='none'){ speak(m.text); $('sttStatus').textContent='PC: '+m.text; } } });
+      box.scrollTop=box.scrollHeight;
     }
-    function startInCall(){
+    function appendLocal(who,text){ const box=$('assistantText'); const div=document.createElement('div'); div.style.marginTop='6px'; div.innerHTML=`<b>${who}</b>: ${String(text).replace(/</g,'&lt;')}`; box.appendChild(div); box.scrollTop=box.scrollHeight; }
+    function startCall(num, name, dsmFlag){
+      const calleeName=name || (isDsm(num)?'DSMDonalds Drive-Thru':(num||'Unknown'));
+      const dsm = dsmFlag!=null ? !!dsmFlag : isDsm(num) || /dsm/i.test(calleeName);
+      currentCallee={number:num||calleeName,name:calleeName,dsm};
+      heardChat=new Set();
       $('dialerView').style.display='none'; $('inCallView').style.display='block';
-      $('callState').textContent='Calling...'; $('assistantText').textContent='';
+      $('callName').textContent=calleeName; $('callNumberLabel').textContent=num||''; $('assistantText').innerHTML=''; $('orderText').value='';
+      $('callAvatar').textContent=(calleeName.trim()[0]||'?').toUpperCase(); $('callAvatar').className='avatar'+(dsm?' dsm':'');
+      $('callPanelTitle').textContent=dsm?'Live Call with DSMDonalds (TTS + STT + PC back-and-forth)':'Call (TTS + STT)';
+      $('callPills').innerHTML=dsm?'<span class="pill">TTS</span><span class="pill">STT</span><span class="pill">PC back-and-forth</span>':'<span class="pill">TTS</span><span class="pill">STT</span><span class="pill">Simulated</span>';
+      $('sendPcBtn').textContent=dsm?'Send to PC':'Send';
+      $('callState').textContent='Calling...';
       setTimeout(()=>{
         $('callState').textContent='Connected';
-        const greet='Thank you for calling D S M Donalds. What would you like to order?';
-        $('assistantText').textContent='<div><b>DSMDonalds</b>: '+greet+'</div>';
-        speak(greet);
-        const d=DT.load(); d.driveThruChat=d.driveThruChat||[]; d.driveThruChat.push({id:DT.uid(),at:Date.now(),from:'pc',text:greet}); DT.save(d);
         callSeconds=0; $('callTimer').textContent='00:00';
         timerInt=setInterval(()=>{callSeconds++; const m=String(Math.floor(callSeconds/60)).padStart(2,'0'); const s=String(callSeconds%60).padStart(2,'0'); $('callTimer').textContent=m+':'+s;},1000);
-        renderChat();
-      }, 1400);
+        if(dsm){
+          const greet='Thank you for calling D S M Donalds. What would you like to order?';
+          const d=DT.load(); d.driveThruChat=d.driveThruChat||[]; d.driveThruChat.push({id:DT.uid(),at:Date.now(),from:'pc',text:greet}); DT.save(d);
+          renderChat();
+        } else {
+          const greet=`Hi, this is ${calleeName}.`;
+          appendLocal(calleeName,greet); speak(greet);
+          $('sttStatus').textContent='Connected. Speak or type a message.';
+        }
+      }, 1200);
     }
-    function endCall(){ if(timerInt) clearInterval(timerInt); timerInt=null; if(listening&&recognition){try{recognition.stop();}catch(e){}} $('inCallView').style.display='none'; $('dialerView').style.display='block'; $('callState').textContent='Call ended'; speak('Thank you, goodbye.'); }
-    $('dialBtn').onclick=startInCall; $('callDsm').onclick=()=>{number='1800-DSM'; renderNumber(); startInCall();};
+    function endCall(){ if(timerInt) clearInterval(timerInt); timerInt=null; if(listening&&recognition){try{recognition.stop();}catch(e){}} $('inCallView').style.display='none'; $('dialerView').style.display='block'; $('callState').textContent='Call ended'; speak('Call ended.'); currentCallee=null; }
+    $('dialBtn').onclick=()=>{ if(!String(number||'').trim()){alert('Enter a number'); return;} startCall(number, null, null); };
     $('hangupBtn').onclick=endCall;
 
-    $('ttsBtn').onclick=()=>{ const t=($('orderText').value||'').trim() || 'No order yet.'; speak('You said: '+t); };
-    function pushPhoneMessage(msg, asOrder){
+    $('ttsBtn').onclick=()=>{ const t=($('orderText').value||'').trim() || 'No message.'; speak(t); };
+    function pushPhoneMessage(msg){
       const u=DT.currentUser?DT.currentUser():null; const d=DT.load();
       d.driveThruChat=d.driveThruChat||[]; d.driveThruChat.push({id:DT.uid(),at:Date.now(),from:'phone',text:msg}); if(d.driveThruChat.length>100) d.driveThruChat=d.driveThruChat.slice(-100);
-      if(asOrder){ d.driveThruCalls=d.driveThruCalls||[]; d.driveThruCalls.unshift({id:DT.uid(),at:Date.now(),userId:u?u.id:null,userName:u?u.name:'Phone Caller',code:u?u.code:null,message:msg,orderText:msg,status:'received',source:'phone-call'}); if(d.driveThruCalls.length>50) d.driveThruCalls=d.driveThruCalls.slice(0,50); }
+      d.driveThruCalls=d.driveThruCalls||[]; d.driveThruCalls.unshift({id:DT.uid(),at:Date.now(),userId:u?u.id:null,userName:u?u.name:'Phone Caller',code:u?u.code:null,message:msg,orderText:msg,status:'received',source:'phone-call'}); if(d.driveThruCalls.length>50) d.driveThruCalls=d.driveThruCalls.slice(0,50);
       DT.save(d);
     }
     $('sendPcBtn').onclick=()=>{
       const msg=($('orderText').value||'').trim(); if(!msg){$('sttStatus').textContent='No message to send.'; return;}
-      pushPhoneMessage(msg,true);
-      $('sttStatus').textContent='Sent to PC. Waiting for response (will speak back)...';
+      if(currentCallee && currentCallee.dsm){
+        pushPhoneMessage(msg);
+        $('sttStatus').textContent='Sent to PC. Waiting for response (will speak back)...';
+      } else {
+        appendLocal('You', msg);
+        $('sttStatus').textContent='Sent.';
+        const reply = `Got it: ${msg}`;
+        setTimeout(()=>{ if($('inCallView').style.display==='none') return; appendLocal(currentCallee?currentCallee.name:'Caller', reply); speak(reply); }, 900);
+      }
       $('orderText').value='';
     };
     function setupStt(){
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ $('sttStatus').textContent='Speech recognition (STT) not supported in this browser.'; $('sttBtn').disabled=true; return null; }
       const r=new SR(); r.lang='en-US'; r.interimResults=true; r.continuous=false;
-      r.onresult=(e)=>{ let final='', interim=''; for(let i=e.resultIndex;i<e.results.length;i++){ const t=e.results[i][0].transcript; if(e.results[i].isFinal) final+=t; else interim+=t; } if(final){ $('orderText').value = ($('orderText').value?$('orderText').value+' ':'') + final.trim(); $('sttStatus').textContent='Captured. Tap Send to PC to speak it to the drive-thru.'; } else { $('sttStatus').textContent='Listening: '+interim; } };
+      r.onresult=(e)=>{ let final='', interim=''; for(let i=e.resultIndex;i<e.results.length;i++){ const t=e.results[i][0].transcript; if(e.results[i].isFinal) final+=t; else interim+=t; } if(final){ $('orderText').value = ($('orderText').value?$('orderText').value+' ':'') + final.trim(); $('sttStatus').textContent='Captured speech.'; } else { $('sttStatus').textContent='Listening: '+interim; } };
       r.onerror=(e)=>{ $('sttStatus').textContent='STT error: '+e.error; listening=false; $('sttBtn').textContent='🎤 Speak (STT)'; };
       r.onend=()=>{ listening=false; $('sttBtn').textContent='🎤 Speak (STT)'; };
       return r;
     }
     recognition=setupStt();
-    $('sttBtn').textContent='🎤 Speak (STT)';
     $('sttBtn').onclick=()=>{
       if(!recognition){ $('sttStatus').textContent='Speech recognition not available.'; return; }
       if(listening){ try{recognition.stop();}catch(e){} listening=false; $('sttBtn').textContent='🎤 Speak (STT)'; return; }
       try{ recognition.start(); listening=true; $('sttBtn').textContent='⏹ Stop Listening'; $('sttStatus').textContent='Listening... speak now.'; }catch(e){ $('sttStatus').textContent='Could not start microphone/STT.'; }
     };
 
-    window.addEventListener('dt-update',renderChat); window.addEventListener('storage',renderChat);
-    setInterval(()=>{ if(DT.getSync()) DT.pullSync(false); renderChat(); }, 2500);
-    if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}    
+    window.addEventListener('dt-update',()=>{renderContacts(); renderChat();}); window.addEventListener('storage',()=>{renderContacts(); renderChat();});
+    setInterval(()=>{ if(window.DT && DT.getSync()) DT.pullSync(false); renderChat(); }, 2500);
+    renderContacts();
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
   </script>
 </body>
 </html>
