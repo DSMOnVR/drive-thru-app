@@ -41,7 +41,46 @@
     </header>
 
     <main class="app-main">
-      <section class="tab-page active" id="tab-rewards">
+      <section class="tab-page active" id="tab-home">
+        <div class="phone-home">
+          <div class="phone-status"><span id="phTime">9:41</span><span class="small">DSM Phone</span><span>LTE ▮▮▮</span></div>
+          <div class="app-grid">
+            <button class="app-icon" data-go="rewards"><span class="icon red">★</span><span>Rewards</span></button>
+            <button class="app-icon" data-go="order"><span class="icon blue">🍔</span><span>Order</span></button>
+            <button class="app-icon" data-go="cash"><span class="icon cash">$</span><span>Cash App</span></button>
+            <button class="app-icon" data-go="scan"><span class="icon gray">⌁</span><span>Scan Pay</span></button>
+            <button class="app-icon" data-go="deals"><span class="icon yellow">%</span><span>Deals</span></button>
+            <button class="app-icon" data-go="account"><span class="icon gray">☺</span><span>Account</span></button>
+            <a class="app-icon" href="admin.html"><span class="icon gray">⚙</span><span>Admin</span></a>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-page" id="tab-cash">
+        <div class="cash-app">
+          <div class="cash-top">
+            <div class="small" style="color:#b7ffcf">Cash Balance</div>
+            <div class="cash-balance" id="cashBalance">$0.00</div>
+            <div class="cash-tag" id="cashTag">$guest</div>
+            <div class="cash-actions">
+              <button class="cash-btn" id="cashAdd">Add Cash</button>
+              <button class="cash-btn" id="cashSend">Pay</button>
+              <button class="cash-btn" id="cashRequest">Request</button>
+            </div>
+          </div>
+          <div class="panel soft" style="margin-top:12px">
+            <div class="section-title small-title">Cash Card</div>
+            <div class="cash-card"><div class="cash-card-brand">Cash Card</div><div class="cash-card-num" id="cashCardNum">•••• •••• •••• 0000</div><div class="cash-card-name" id="cashCardName">Guest</div></div>
+          </div>
+          <div class="panel soft" style="margin-top:12px">
+            <div class="section-title small-title">Activity</div>
+            <div id="cashActivity" class="app-list"></div>
+          </div>
+          <div id="cashMsg" class="small" style="margin-top:8px"></div>
+        </div>
+      </section>
+
+      <section class="tab-page" id="tab-rewards">
         <div class="hero-card">
           <div class="eyebrow">Rewards Code</div>
           <div class="code-big" id="codeBig">----</div>
@@ -148,10 +187,10 @@
     </main>
 
     <nav class="tabbar">
-      <button class="tab active" data-tab="rewards"><span class="ico">★</span><span>Rewards</span></button>
+      <button class="tab active" data-tab="home"><span class="ico">⌂</span><span>Home</span></button>
+      <button class="tab" data-tab="cash"><span class="ico">$</span><span>Cash</span></button>
       <button class="tab" data-tab="order"><span class="ico">🍔</span><span>Order</span></button>
-      <button class="tab" data-tab="scan"><span class="ico">⌁</span><span>Scan</span></button>
-      <button class="tab" data-tab="deals"><span class="ico">%</span><span>Deals</span></button>
+      <button class="tab" data-tab="rewards"><span class="ico">★</span><span>Rewards</span></button>
       <button class="tab" data-tab="account"><span class="ico">☺</span><span>Account</span></button>
     </nav>
   </div>
@@ -206,7 +245,8 @@
       document.querySelectorAll('[data-redeem]').forEach(b=>b.onclick=()=>redeemOffer(b.dataset.redeem));
       const mine=(u.offers||[]);
       $('myRewards').innerHTML = mine.length ? mine.map(r=>`<li>${r.title}</li>`).join('') : '<li class="small">No redeemed rewards yet</li>';
-      const sm = DT.getSync()?('Synced · ID: '+DT.getSync().id):'Not synced (local only). Create/join a Sync ID to share across devices.';
+      renderCash();
+      const sm = DT.getSync()?('Synced automatically'):'Syncing...';
       if($('syncMsg2')) $('syncMsg2').textContent=sm;
       renderCards();
     }
@@ -222,8 +262,51 @@
       const wrap=$('cardSwitcher'); if(!wrap) return;
       const d=DT.load(); const cur=DT.currentUser();
       wrap.innerHTML = d.users.map(u=>`<button class="btn ${cur&&cur.id===u.id?'':'secondary'} block" data-switch="${u.id}" style="margin-top:8px;text-align:left">${u.name} · ${u.code} · ${u.unlimited?'Unlimited':DT.fmt(u.balance||0)} ${cur&&cur.id===u.id?'(active)':''}</button>`).join('') || '<div class="small">No cards yet.</div>';
-      wrap.querySelectorAll('[data-switch]').forEach(b=>b.onclick=()=>{DT.setSession({userId:b.dataset.switch}); render(); showTab('rewards');});
+      wrap.querySelectorAll('[data-switch]').forEach(b=>b.onclick=()=>{DT.setSession({userId:b.dataset.switch}); render(); showTab('home');});
     }
+    function cashTagFor(u){return '$'+(u&&u.code?u.code:(u&&u.name?u.name.replace(/[^a-z0-9]/ig,'').toLowerCase():'user'));}
+
+0:00
+    function renderCash(){
+      const u=DT.currentUser(); if(!u || !$('cashBalance')) return;
+      $('cashBalance').textContent = u.unlimited ? 'Unlimited' : DT.fmt(u.balance||0);
+      $('cashTag').textContent = cashTagFor(u);
+      $('cashCardNum').textContent='•••• •••• •••• '+(u.cardLast4||String(u.code||'0000').padStart(4,'0'));
+      $('cashCardName').textContent=u.name||'Guest';
+      const d=DT.load(); const acts=(d.transactions||[]).filter(t=>t.from===u.id || t.to===u.id).slice(0,20);
+      $('cashActivity').innerHTML = acts.length ? acts.map(t=>{
+        const incoming=t.to===u.id; const otherId=incoming?t.from:t.to; const other=d.users.find(x=>x.id===otherId);
+        const label = t.type==='add' ? 'Added cash' : (incoming?('From '+(other?other.name:'Someone')):('To '+(other?other.name:'Someone')));
+        const amt = (incoming?'+':'-')+DT.fmt(t.amount||0);
+        return `<div class="cash-act"><div><div style="font-weight:700">${label}</div><div class="small">${new Date(t.at).toLocaleString()}${t.note?' · '+t.note:''}</div></div><div style="font-weight:800;color:${incoming?'#00D632':'#fff'}">${t.type==='add'?'+':''}${incoming&&t.type!=='add'?'+':'-'}${DT.fmt(t.amount||0)}</div></div>`;
+      }).join('') : '<div class="small">No activity yet</div>';
+    }
+    async function ensureUsersFresh(){ if(DT.getSync()) await DT.pullSync(true); }
+    $('cashAdd').onclick=async()=>{
+      const u=DT.currentUser(); if(!u) return; const amt=parseFloat(prompt('Add cash amount ($)','20')||'0'); if(!(amt>0)) return;
+      await ensureUsersFresh(); const d=DT.load(); const me=d.users.find(x=>x.id===u.id); if(!me) return;
+      if(!me.unlimited) me.balance=Number(me.balance||0)+amt;
+      d.transactions=d.transactions||[]; d.transactions.unshift({id:DT.uid(),type:'add',to:me.id,from:null,amount:amt,at:Date.now(),note:'Added to balance'});
+      DT.save(d); render();
+    };
+    $('cashSend').onclick=async()=>{
+      const u=DT.currentUser(); if(!u) return; const to=prompt('Pay to (rewards code or name)'); if(!to) return; const amt=parseFloat(prompt('Amount ($)','5')||'0'); if(!(amt>0)) return; const note=prompt('For (optional)','')||'';
+      await ensureUsersFresh(); const d=DT.load(); const me=d.users.find(x=>x.id===u.id); const rec=d.users.find(x=>String(x.code)===String(to).trim() || x.name.toLowerCase()===String(to).trim().toLowerCase());
+      if(!me||!rec){alert('Recipient not found'); return;} if(rec.id===me.id){alert('Cannot send to yourself'); return;}
+      if(!me.unlimited && Number(me.balance||0)<amt){alert('Insufficient balance'); return;}
+      if(!me.unlimited) me.balance=Number(me.balance||0)-amt; if(!rec.unlimited) rec.balance=Number(rec.balance||0)+amt;
+      d.transactions=d.transactions||[]; d.transactions.unshift({id:DT.uid(),type:'send',from:me.id,to:rec.id,amount:amt,at:Date.now(),note});
+      DT.save(d); alert('Sent '+DT.fmt(amt)+' to '+rec.name); render();
+    };
+    $('cashRequest').onclick=async()=>{
+      const u=DT.currentUser(); if(!u) return; const from=prompt('Request from (rewards code or name)'); if(!from) return; const amt=parseFloat(prompt('Amount ($)','5')||'0'); if(!(amt>0)) return; const note=prompt('For (optional)','')||'';
+      await ensureUsersFresh(); const d=DT.load(); const me=d.users.find(x=>x.id===u.id); const sender=d.users.find(x=>String(x.code)===String(from).trim() || x.name.toLowerCase()===String(from).trim().toLowerCase());
+      if(!me||!sender){alert('User not found'); return;} if(sender.id===me.id){alert('Cannot request from yourself'); return;}
+      if(!sender.unlimited && Number(sender.balance||0)<amt){alert('They have insufficient balance'); return;}
+      if(!sender.unlimited) sender.balance=Number(sender.balance||0)-amt; if(!me.unlimited) me.balance=Number(me.balance||0)+amt;
+      d.transactions=d.transactions||[]; d.transactions.unshift({id:DT.uid(),type:'request',from:sender.id,to:me.id,amount:amt,at:Date.now(),note});
+      DT.save(d); alert('Received '+DT.fmt(amt)+' from '+sender.name); render();
+    };
     $('showLogin').onclick=()=>{$('showLogin').classList.add('active');$('showSignup').classList.remove('active');$('loginForm').style.display='block';$('signupForm').style.display='none';};
     $('showSignup').onclick=()=>{$('showSignup').classList.add('active');$('showLogin').classList.remove('active');$('signupForm').style.display='block';$('loginForm').style.display='none';};
     $('loginBtn').onclick=async()=>{
@@ -261,6 +344,8 @@
       if(name!=='scan') stopScan();
       window.scrollTo(0,0);
     }
+    function updatePhoneTime(){ const t=new Date(); const el=$('phTime'); if(el) el.textContent=t.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }
+    setInterval(updatePhoneTime, 10000); updatePhoneTime();
     document.querySelectorAll('.tabbar .tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
     document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go));
 

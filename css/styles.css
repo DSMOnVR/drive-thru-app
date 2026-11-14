@@ -77,3 +77,21 @@ hr{border:0;border-top:1px solid var(--border);margin:14px 0}
 .tap-overlay.open{opacity:1;pointer-events:auto}
 .tap-full{text-align:center;max-width:420px;width:100%;transform:scale(.96);transition:transform .25s ease}.tap-overlay.open .tap-full{transform:scale(1)}
 @media (max-width:900px){.pos{grid-template-columns:1fr}.pos-right{border-right:0;border-top:1px solid var(--border)}}
+/* Phone home screen */
+.phone-home{padding:4px 2px}
+.phone-status{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;font-weight:700;color:#dfe6ff;padding:4px 6px 14px}
+.app-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px 10px}
+.app-icon{background:none;border:0;color:#fff;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;text-decoration:none;font:inherit}
+.app-icon span:last-child{font-size:.72rem;font-weight:600;color:#e6e8ee}
+.app-icon .icon{width:58px;height:58px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:900;box-shadow:0 6px 14px rgba(0,0,0,.25)}
+.icon.red{background:linear-gradient(160deg,#e11d48,#b91c1c)}.icon.blue{background:linear-gradient(160deg,#3b82f6,#1d4ed8)}.icon.gray{background:linear-gradient(160deg,#374151,#1f2937)}.icon.yellow{background:linear-gradient(160deg,#f59e0b,#b45309);color:#111}
+.icon.cash{background:#00D632;color:#000;font-size:1.9rem}
+/* Cash App */
+.cash-app .cash-top{background:linear-gradient(180deg,#00D632,#00a827);border-radius:22px;padding:18px;color:#001a08;text-align:center}
+.cash-balance{font-size:2.6rem;font-weight:900;margin:4px 0}
+.cash-tag{font-weight:800;font-size:1.05rem;opacity:.9}
+.cash-actions{display:flex;gap:10px;justify-content:center;margin-top:14px}
+.cash-btn{flex:1;max-width:120px;background:rgba(0,0,0,.18);color:#001a08;border:0;border-radius:999px;padding:10px 12px;font-weight:800;cursor:pointer}
+.cash-card{background:linear-gradient(135deg,#111,#2b2b2b);border-radius:16px;padding:16px;color:#fff;min-height:150px;display:flex;flex-direction:column;justify-content:space-between}
+.cash-card-brand{font-weight:900;color:#00D632}.cash-card-num{letter-spacing:2px;font-size:1.1rem}.cash-card-name{font-weight:700}
+.cash-act{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}.cash-act:last-child{border-bottom:0}
