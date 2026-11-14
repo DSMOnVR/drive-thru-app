@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="topbar"><div class="title">Admin</div><a href="index.html">Home</a></div>
+  <div class="container">
+    <div class="row">
+      <div class="panel">
+        <h2 style="margin-top:0">Create / Update Fake Card & Rewards User</h2>
+        <p class="small">These accounts are used by the Phone App (rewards 4-code, points, wallet balance) and can be linked at Register.</p>
+        <input type="hidden" id="uId" />
+        <label>Name</label><input id="uName" placeholder="Customer name" />
+        <label>4-digit Rewards Code</label><input id="uCode" maxlength="4" placeholder="1234" />
+        <label>Card Last 4 (display)</label><input id="uLast4" maxlength="4" placeholder="0000" />
+        <label>Balance ($)</label><input id="uBal" type="number" step="0.01" />
+        <label>Points</label><input id="uPts" type="number" step="1" />
+        <div class="row" style="margin-top:12px"><button class="btn" id="saveUser">Save User/Card</button><button class="btn secondary" id="newUser">New</button></div>
+      </div>
+      <div class="panel">
+        <h2 style="margin-top:0">Users / Cards</h2>
+        <div id="usersList"></div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <div class="panel">
+        <h2 style="margin-top:0">Offers / Free Food (Admin)</h2>
+        <label>Title</label><input id="oTitle" placeholder="Free Fries" />
+        <label>Points Cost</label><input id="oCost" type="number" step="1" placeholder="200" />
+        <label>Description</label><input id="oDesc" placeholder="Redeem for a medium fries" />
+        <button class="btn" style="margin-top:10px" id="addOffer">Add Offer</button>
+        <div id="offersList" style="margin-top:12px"></div>
+      </div>
+      <div class="panel">
+        <h2 style="margin-top:0">Rewards Settings</h2>
+        <label>Points per $1</label><input id="ppd" type="number" step="1" />
+        <button class="btn" style="margin-top:10px" id="saveRewards">Save Settings</button>
+        <hr>
+        <h3 style="margin:0 0 8px">Data / Notes</h3>
+        <p class="small">Data is stored in this browser's localStorage. For PC register + iPhone phone app on different devices with static hosting, open Admin/Phone/Register on the same device for shared data, or recreate accounts/codes on each device. Payment QR scan works best when register and phone share context; you can also manually complete phone payment by matching pending payment if same browser storage is used. Menu items added on Menu Board are saved per device/browser.</p>
+        <button class="btn danger" id="reset">Reset Demo Data</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    function esc(s){return String(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+    function clearForm(){['uId','uName','uCode','uLast4','uBal','uPts'].forEach(id=>document.getElementById(id).value='');}
+    function render(){
+      const d=DT.load();
+      document.getElementById('ppd').value=d.rewards.pointsPerDollar||10;
+      document.getElementById('usersList').innerHTML=d.users.map(u=>`
+        <div class="panel" style="margin-bottom:8px">
+          <div><b>${esc(u.name)}</b> <span class="badge">${esc(u.code)}</span></div>
+          <div class="small">Balance ${DT.fmt(u.balance)} · Points ${u.points||0} · Card **** ${esc(u.cardLast4||'')}</div>
+          <div class="row" style="margin-top:8px"><button class="btn secondary" data-edit="${u.id}">Edit</button><button class="btn danger" data-del="${u.id}">Delete</button></div>
+        </div>`).join('') || '<div class="small">No users yet.</div>';
+      document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{
+        const u=d.users.find(x=>x.id===b.dataset.edit); if(!u) return;
+        document.getElementById('uId').value=u.id; document.getElementById('uName').value=u.name||'';
+        document.getElementById('uCode').value=u.code||''; document.getElementById('uLast4').value=u.cardLast4||'';
+        document.getElementById('uBal').value=u.balance||0; document.getElementById('uPts').value=u.points||0;
+      });
+      document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+        const dd=DT.load(); dd.users=dd.users.filter(x=>x.id!==b.dataset.del); DT.save(dd); render();
+      });
+      document.getElementById('offersList').innerHTML=d.offers.map(o=>`
+        <div class="panel" style="margin-bottom:8px"><div><b>${esc(o.title)}</b> — ${o.cost} pts</div><div class="small">${esc(o.desc||'')}</div><button class="btn danger" style="margin-top:8px" data-delo="${o.id}">Remove</button></div>
+      `).join('') || '<div class="small">No offers yet.</div>';
+      document.querySelectorAll('[data-delo]').forEach(b=>b.onclick=()=>{const dd=DT.load(); dd.offers=dd.offers.filter(x=>x.id!==b.dataset.delo); DT.save(dd); render();});
+    }
+    document.getElementById('saveUser').onclick=()=>{
+      const d=DT.load(); const id=document.getElementById('uId').value || DT.uid();
+      const name=document.getElementById('uName').value.trim()||'Guest';
+      let code=document.getElementById('uCode').value.trim(); if(!/^\d{4}$/.test(code)) code=DT.genCode();
+      const u={id,name,code,cardLast4:document.getElementById('uLast4').value.trim()||code,balance:parseFloat(document.getElementById('uBal').value||'0')||0,points:parseInt(document.getElementById('uPts').value||'0',10)||0,offers:(d.users.find(x=>x.id===id)||{}).offers||[]};
+      const i=d.users.findIndex(x=>x.id===id); if(i>=0) d.users[i]=u; else d.users.push(u); DT.save(d); clearForm(); render();
+    };
+    document.getElementById('newUser').onclick=clearForm;
+    document.getElementById('addOffer').onclick=()=>{
+      const title=document.getElementById('oTitle').value.trim(); const cost=parseInt(document.getElementById('oCost').value||'0',10)||0; const desc=document.getElementById('oDesc').value.trim();
+      if(!title){alert('Enter offer title'); return;} const d=DT.load(); d.offers.push({id:DT.uid(),title,cost,desc}); DT.save(d);
+      document.getElementById('oTitle').value=''; document.getElementById('oCost').value=''; document.getElementById('oDesc').value=''; render();
+    };
+    document.getElementById('saveRewards').onclick=()=>{const d=DT.load(); d.rewards.pointsPerDollar=parseInt(document.getElementById('ppd').value||'10',10)||10; DT.save(d); alert('Saved');};
+    document.getElementById('reset').onclick=()=>{if(confirm('Reset all demo data?')){localStorage.removeItem(DT.KEY); DT.seed(); render();}};
+    window.addEventListener('storage',render); render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Register</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="topbar"><div class="title">Register (PC)</div><a href="index.html">Home</a></div>
+  <div class="container">
+    <div class="row">
+      <div class="panel" style="flex:2">
+        <h2 style="margin:0 0 10px">Items</h2>
+        <div id="menuGrid" class="menu-grid"></div>
+      </div>
+      <div class="panel" style="flex:1;min-width:300px">
+        <h2 style="margin:0 0 10px">Current Order</h2>
+        <div id="rewardInfo" class="small">No rewards account linked. Use <b>Mobile App</b> to enter 4-code.</div>
+        <ul id="cart" class="cart-list"></ul>
+        <div class="total">Total: <span id="total">$0.00</span></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn secondary" id="clearCart">Clear</button>
+          <button class="btn" id="mobileAppBtn">Mobile App (4-code)</button>
+        </div>
+        <hr>
+        <h3 style="margin:0 0 8px">Payment</h3>
+        <div class="row">
+          <button class="btn green block" id="cashPay">Cash / Card Paid</button>
+          <button class="btn block" id="phonePay">Apple Pay / Phone Scan</button>
+        </div>
+        <div id="payArea" style="margin-top:12px"></div>
+        <hr>
+        <h3 style="margin:0 0 8px">Redeem Offer</h3>
+        <div class="small">If linked account has enough points, redeem an offer.</div>
+        <select id="offerSelect"></select>
+        <button class="btn secondary" style="margin-top:8px" id="redeemBtn">Redeem Selected</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="codeModal"><div class="box">
+    <h3 style="margin-top:0">Link Mobile App (4-code)</h3>
+    <p class="small">Enter the 4-digit code shown in the Phone App rewards screen.</p>
+    <input id="codeInput" maxlength="4" placeholder="1234" />
+    <div class="row" style="margin-top:12px"><button class="btn" id="linkCode">Link</button><button class="btn secondary" id="closeCode">Cancel</button></div>
+  </div></div>
+
+  <script src="js/app.js"></script>
+  <script>
+    let cart=[]; let linkedUserId=null; let currentPayment=null;
+    function renderMenu(){
+      const d=DT.load();
+      document.getElementById('menuGrid').innerHTML=d.menu.map(m=>`
+        <div class="item" data-id="${m.id}"><img src="${m.img||''}" alt=""><div class="info"><div class="name">${m.name}</div><div class="price">${DT.fmt(m.price)}</div></div></div>
+      `).join('') || '<div class="small">No menu items. Open Menu Board and press Alt+D to add.</div>';
+      document.querySelectorAll('.item').forEach(el=>el.onclick=()=>{
+        const item=d.menu.find(x=>x.id===el.dataset.id); if(!item) return;
+        cart.push({id:item.id,name:item.name,price:Number(item.price)}); renderCart();
+      });
+    }
+    function total(){return cart.reduce((s,i)=>s+Number(i.price||0),0)}
+    function renderCart(){
+      document.getElementById('cart').innerHTML=cart.map((c,i)=>`<li><span>${c.name}</span><span>${DT.fmt(c.price)} <button data-i="${i}" class="rm" style="margin-left:6px">x</button></span></li>`).join('');
+      document.querySelectorAll('.rm').forEach(b=>b.onclick=()=>{cart.splice(Number(b.dataset.i),1); renderCart();});
+      document.getElementById('total').textContent=DT.fmt(total());
+      renderLinked();
+    }
+    function renderLinked(){
+      const info=document.getElementById('rewardInfo'); const sel=document.getElementById('offerSelect');
+      const d=DT.load();
+      if(!linkedUserId){info.innerHTML='No rewards account linked. Use <b>Mobile App</b> to enter 4-code.'; sel.innerHTML='<option value="">Link account to redeem</option>'; return;}
+      const u=d.users.find(x=>x.id===linkedUserId);
+      if(!u){linkedUserId=null; renderLinked(); return;}
+      info.innerHTML=`Linked: <b>${u.name}</b> · Points: <b>${u.points||0}</b> · Balance: <b>${DT.fmt(u.balance||0)}</b> · Code: ${u.code}`;
+      const opts=d.offers.filter(o=>(u.points||0)>=Number(o.cost||0));
+      sel.innerHTML='<option value="">Select offer</option>'+d.offers.map(o=>`<option value="${o.id}">${o.title} (${o.cost} pts)${(u.points||0)<o.cost?' - need more':''}</option>`).join('');
+    }
+    function completeOrder(paymentMethod){
+      const d=DT.load(); const t=total(); if(t<=0){alert('Cart is empty'); return false;}
+      if(linkedUserId){
+        const u=d.users.find(x=>x.id===linkedUserId);
+        if(u){ u.points = (u.points||0) + Math.floor(t * (d.rewards.pointsPerDollar||10)); }
+      }
+      DT.save(d); alert('Order complete ('+paymentMethod+').'+(linkedUserId?' Points awarded.':''));
+      cart=[]; currentPayment=null; DT.clearPendingPayment(); document.getElementById('payArea').innerHTML=''; renderCart(); return true;
+    }
+    document.getElementById('clearCart').onclick=()=>{cart=[]; renderCart();};
+    const cm=document.getElementById('codeModal');
+    document.getElementById('mobileAppBtn').onclick=()=>{cm.classList.add('open'); document.getElementById('codeInput').focus();};
+    document.getElementById('closeCode').onclick=()=>cm.classList.remove('open');
+    document.getElementById('linkCode').onclick=()=>{
+      const code=document.getElementById('codeInput').value.trim();
+      const u=DT.getUserByCode(code);
+      if(!u){alert('No account found for that 4-code. Create one in Admin/Phone.'); return;}
+      linkedUserId=u.id; cm.classList.remove('open'); document.getElementById('codeInput').value=''; renderLinked();
+      alert('Linked to '+u.name);
+    };
+    document.getElementById('cashPay').onclick=()=>completeOrder('cash/card');
+    document.getElementById('phonePay').onclick=()=>{
+      const t=total(); if(t<=0){alert('Cart is empty'); return;}
+      currentPayment={id:DT.uid(), amount:t, created:Date.now(), status:'pending', forUserId:linkedUserId||null};
+      DT.setPendingPayment(currentPayment);
+      const payload=JSON.stringify({t:'pay',id:currentPayment.id,amount:t});
+      const qr=DT.makeQRUrl(payload,240);
+      document.getElementById('payArea').innerHTML=`<div class="panel"><div><b>Scan to pay with Phone App</b></div><div class="small">Open Phone App → Scan & Pay, scan this QR. Amount ${DT.fmt(t)}. After phone confirms, click "Check Payment".</div><div class="qr-box" style="margin-top:8px"><img src="${qr}" alt="QR"></div><div class="small" style="margin-top:8px;word-break:break-all">Payment ID: ${currentPayment.id}</div><div class="row" style="margin-top:8px"><button class="btn green" id="checkPay">Check Payment</button><button class="btn secondary" id="cancelPay">Cancel</button></div></div>`;
+      document.getElementById('checkPay').onclick=()=>{
+        const d=DT.load(); const p=d.pendingPayment;
+        if(p && p.id===currentPayment.id && p.status==='paid'){
+          completeOrder('phone/apple pay');
+        } else {
+          alert('Not paid yet. On the phone, scan QR and confirm payment with a card that has enough balance.');
+        }
+      };
+      document.getElementById('cancelPay').onclick=()=>{DT.clearPendingPayment(); currentPayment=null; document.getElementById('payArea').innerHTML='';};
+    };
+    document.getElementById('redeemBtn').onclick=()=>{
+      if(!linkedUserId){alert('Link a rewards account first.'); return;}
+      const offerId=document.getElementById('offerSelect').value; if(!offerId){alert('Select an offer'); return;}
+      const d=DT.load(); const u=d.users.find(x=>x.id===linkedUserId); const o=d.offers.find(x=>x.id===offerId);
+      if(!u||!o) return;
+      if((u.points||0) < Number(o.cost||0)){alert('Not enough points'); return;}
+      u.points -= Number(o.cost||0); u.offers=u.offers||[]; u.offers.push({id:DT.uid(),title:o.title,redeemedAt:Date.now()});
+      DT.save(d); alert('Redeemed: '+o.title+'. Show this to cashier / apply free item.'); renderLinked();
+    };
+    window.addEventListener('storage',()=>{renderMenu(); renderLinked();});
+    renderMenu(); renderCart();
+  </script>
+</body>
+</html>

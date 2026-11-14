@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Phone Rewards & Pay</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="topbar"><div class="title">Phone App</div><a href="index.html">Home</a></div>
+  <div class="container phone">
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Rewards</h2><select id="userSelect" style="max-width:180px"></select></div>
+      <div class="small">Show this 4-code to the register (Mobile App button) to earn points.</div>
+      <div class="code-big" id="codeBig">----</div>
+      <div class="row"><div class="panel" style="flex:1;text-align:center"><div class="small">Points</div><div style="font-size:1.6rem;font-weight:900" id="pts">0</div></div><div class="panel" style="flex:1;text-align:center"><div class="small">Balance</div><div style="font-size:1.6rem;font-weight:900" id="bal">$0.00</div></div></div>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <h3 style="margin:0 0 8px">Wallet (Fake Card)</h3>
+      <div class="wallet"><div class="brand">DSM PAY</div><div class="num" id="cardNum">•••• •••• •••• 0000</div><div class="meta"><span id="cardName">Guest</span><span id="cardBal">$0.00</span></div></div>
+      <p class="small" style="margin:8px 0 0">Admin can create cards and set balances in <a href="admin.html">Admin</a>.</p>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <h3 style="margin:0 0 8px">Scan & Pay (Register QR)</h3>
+      <p class="small">Scan the payment QR shown on the PC register. Uses camera when supported; otherwise paste payment data.</p>
+      <div class="row"><button class="btn" id="startScan">Start Camera Scan</button><button class="btn secondary" id="stopScan">Stop</button></div>
+      <div id="scanWrap" style="margin-top:8px;display:none"><video id="video" playsinline></video></div>
+      <label>Or paste scanned/payment data</label>
+      <textarea id="payPaste" rows="3" placeholder='{"t":"pay","id":"...","amount":...}'></textarea>
+      <button class="btn green block" style="margin-top:8px" id="confirmPay">Confirm & Pay from Balance</button>
+      <div id="payMsg" class="small" style="margin-top:8px"></div>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <h3 style="margin:0 0 8px">Offers & Free Food</h3>
+      <div id="offers" class="small"></div>
+      <h4 style="margin:12px 0 6px">Redeemed / My Rewards</h4>
+      <ul id="myRewards" class="list"></ul>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    let currentUserId=null; let stream=null; let detector=null; let scanTimer=null;
+    function users(){return DT.load().users}
+    function renderUserSelect(){
+      const sel=document.getElementById('userSelect'); const us=users();
+      if(!us.length){sel.innerHTML='<option value="">No users</option>'; return;}
+      sel.innerHTML=us.map(u=>`<option value="${u.id}">${u.name} (${u.code})</option>`).join('');
+      if(!currentUserId || !us.find(u=>u.id===currentUserId)) currentUserId=us[0].id;
+      sel.value=currentUserId;
+    }
+    function render(){
+      renderUserSelect(); const d=DT.load(); const u=d.users.find(x=>x.id===currentUserId) || d.users[0];
+      if(!u){document.getElementById('codeBig').textContent='----'; return;}
+      currentUserId=u.id;
+      document.getElementById('codeBig').textContent=u.code||'----';
+      document.getElementById('pts').textContent=u.points||0;
+      document.getElementById('bal').textContent=DT.fmt(u.balance||0);
+      document.getElementById('cardNum').textContent='•••• •••• •••• '+(u.cardLast4||String(u.code||'0000').padStart(4,'0'));
+      document.getElementById('cardName').textContent=u.name||'Guest';
+      document.getElementById('cardBal').textContent=DT.fmt(u.balance||0);
+      document.getElementById('offers').innerHTML = d.offers.length ? '<ul class="list">'+d.offers.map(o=>`<li><b>${o.title}</b> — ${o.cost} pts ${o.desc?'<span class="small">('+o.desc+')</span>':''}</li>`).join('')+'</ul>' : 'No offers yet. Admin can add offers.';
+      const mine=(u.offers||[]);
+      document.getElementById('myRewards').innerHTML = mine.length ? mine.map(r=>`<li>${r.title}</li>`).join('') : '<li class="small">None yet</li>';
+    }
+    document.getElementById('userSelect').onchange=e=>{currentUserId=e.target.value; render();};
+    async function startScan(){
+      const msg=document.getElementById('payMsg');
+      if(!('BarcodeDetector' in window)){msg.textContent='Camera barcode scanning not supported here. Paste payment data from QR/manual instead.'; return;}
+      try{
+        detector=new BarcodeDetector({formats:['qr_code']});
+        stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+        const v=document.getElementById('video'); v.srcObject=stream; await v.play();
+        document.getElementById('scanWrap').style.display='block'; msg.textContent='Scanning... point at register QR.';
+        scanTimer=setInterval(async()=>{
+          try{const codes=await detector.detect(v); if(codes && codes[0] && codes[0].rawValue){document.getElementById('payPaste').value=codes[0].rawValue; msg.textContent='QR detected. Tap Confirm & Pay.'; stopScan();}}catch(e){}
+        },500);
+      }catch(e){msg.textContent='Camera access failed: '+e.message;}
+    }
+    function stopScan(){ if(scanTimer) clearInterval(scanTimer); scanTimer=null; if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null;} document.getElementById('scanWrap').style.display='none'; }
+    document.getElementById('startScan').onclick=startScan; document.getElementById('stopScan').onclick=stopScan;
+    document.getElementById('confirmPay').onclick=()=>{
+      const msg=document.getElementById('payMsg'); const u=DT.getUserById(currentUserId);
+      if(!u){msg.textContent='No user/card selected.'; return;}
+      let payload; try{payload=JSON.parse(document.getElementById('payPaste').value.trim());}catch(e){msg.textContent='Invalid payment data.'; return;}
+      if(!payload || payload.t!=='pay' || !payload.id){msg.textContent='Not a valid payment QR.'; return;}
+      const d=DT.load(); const p=d.pendingPayment;
+      if(!p || p.id!==payload.id || p.status!=='pending'){msg.textContent='No matching pending payment found. Make sure register created this QR on this device/browser, or use same shared browser storage.'; return;}
+      const amt=Number(p.amount||payload.amount||0);
+      if(Number(u.balance||0) < amt){msg.textContent='Insufficient balance on this card.'; return;}
+      u.balance = Number(u.balance||0) - amt; p.status='paid'; p.paidBy=u.id; p.paidAt=Date.now();
+      // sync user in d
+      const idx=d.users.findIndex(x=>x.id===u.id); if(idx>=0) d.users[idx]=u; d.pendingPayment=p; DT.save(d);
+      msg.textContent='Payment approved for '+DT.fmt(amt)+'. Register can now "Check Payment" to complete order.';
+      render();
+    };
+    window.addEventListener('storage',render); window.addEventListener('dt-update',render);
+    render();
+  </script>
+</body>
+</html>
