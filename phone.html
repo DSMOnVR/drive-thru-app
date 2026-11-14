@@ -5,193 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="DSMDonalds" />
-  <meta name="theme-color" content="#0f1115" />
-  <title>DSMDonalds App</title>
+  <meta name="apple-mobile-web-app-title" content="DSM Phone" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>DSM Phone</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="assets/icon.svg" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body class="app-body">
-  <div id="authScreen" class="auth-screen">
-    <div class="auth-card">
-      <div class="app-brand big"><span class="arches">M</span><span>DSMDonalds</span></div>
-      <p class="small" style="text-align:center;margin:6px 0 14px">Sign up or log in to your rewards & wallet.</p>
-      <div class="seg"><button id="showLogin" class="segbtn active">Log In</button><button id="showSignup" class="segbtn">Sign Up</button></div>
-      <div id="loginForm">
-        <label>4-digit Rewards Code</label>
-        <input id="loginCode" maxlength="4" inputmode="numeric" placeholder="1234" />
-        <button class="btn block" id="loginBtn" style="margin-top:12px">Log In</button>
+<body class="ios-phone">
+  <div class="ios-wallpaper">
+    <div class="ios-status"><span id="phTime">9:41</span><div class="island"></div><span class="ios-status-right">5G ▮▮▮ 🔋</span></div>
+    <div class="ios-home">
+      <div class="ios-grid">
+        <a class="ios-app" href="dsmdonalds.html"><span class="ios-icon" style="background:linear-gradient(160deg,#c8102e,#ff4d4d)">M</span><span>DSMDonalds</span></a>
+        <a class="ios-app" href="cash.html"><span class="ios-icon" style="background:#00D632;color:#002b0f">$</span><span>Cash App</span></a>
+        <a class="ios-app" href="register.html"><span class="ios-icon" style="background:linear-gradient(160deg,#2563eb,#60a5fa)">▣</span><span>Register</span></a>
+        <a class="ios-app" href="menu.html"><span class="ios-icon" style="background:linear-gradient(160deg,#f59e0b,#fbbf24);color:#111">☰</span><span>Menu</span></a>
+        <a class="ios-app" href="admin.html"><span class="ios-icon" style="background:linear-gradient(160deg,#4b5563,#111827)">⚙</span><span>Admin</span></a>
+        <a class="ios-app" href="index.html"><span class="ios-icon" style="background:linear-gradient(160deg,#6b7280,#374151)">⌂</span><span>Home</span></a>
       </div>
-      <div id="signupForm" style="display:none">
-        <label>Name</label>
-        <input id="suName" placeholder="Your name" />
-        <button class="btn block" id="signupBtn" style="margin-top:12px">Create Account</button>
-        <p class="small" style="margin-top:8px">We'll create your rewards code and wallet. Balance/points can be managed in Admin.</p>
+      <div class="ios-dock">
+        <a class="ios-app dock" href="dsmdonalds.html"><span class="ios-icon" style="background:linear-gradient(160deg,#c8102e,#ff4d4d)">M</span></a>
+        <a class="ios-app dock" href="cash.html"><span class="ios-icon" style="background:#00D632;color:#002b0f">$</span></a>
+        <a class="ios-app dock" href="register.html"><span class="ios-icon" style="background:linear-gradient(160deg,#2563eb,#60a5fa)">▣</span></a>
+        <a class="ios-app dock" href="admin.html"><span class="ios-icon" style="background:linear-gradient(160deg,#4b5563,#111827)">⚙</span></a>
       </div>
-      <div id="authMsg" class="small" style="margin-top:10px"></div>
-      <div id="syncMsg" class="small" style="margin-top:10px;color:#1f8f4e;font-weight:600">Sync: automatic</div>
+      <div class="ios-bar"></div>
     </div>
-  </div>
-
-  <div class="app-shell" id="appShell" style="display:none">
-    <header class="app-header">
-      <div class="app-brand"><span class="arches">M</span><span>DSMDonalds</span></div>
-      <button class="user-pill-btn" id="acctTop"><span id="topName">Account</span></button>
-    </header>
-
-    <main class="app-main">
-      <section class="tab-page active" id="tab-home">
-        <div class="phone-home">
-          <div class="phone-status"><span id="phTime">9:41</span><span class="small">DSM Phone</span><span>LTE ▮▮▮</span></div>
-          <div class="app-grid">
-            <a class="app-icon" href="dsmdonalds.html"><span class="icon red">M</span><span>DSMDonalds</span></a>
-            <a class="app-icon" href="cash.html"><span class="icon cash">$</span><span>Cash App</span></a>
-            <a class="app-icon" href="admin.html"><span class="icon gray">⚙</span><span>Admin</span></a>
-            <a class="app-icon" href="register.html"><span class="icon blue">▣</span><span>Register</span></a>
-            <a class="app-icon" href="menu.html"><span class="icon yellow">☰</span><span>Menu</span></a>
-          </div>
-          <p class="small" style="margin-top:18px;text-align:center">Separate apps: open DSMDonalds or Cash App.</p>
-        </div>
-      </section>
-
-      <section class="tab-page" id="tab-cash">
-        <div class="cash-app">
-          <div class="cash-top">
-            <div class="small" style="color:#b7ffcf">Cash Balance</div>
-            <div class="cash-balance" id="cashBalance">$0.00</div>
-            <div class="cash-tag" id="cashTag">$guest</div>
-            <div class="cash-actions">
-              <button class="cash-btn" id="cashAdd">Add Cash</button>
-              <button class="cash-btn" id="cashSend">Pay</button>
-              <button class="cash-btn" id="cashRequest">Request</button>
-            </div>
-          </div>
-          <div class="panel soft" style="margin-top:12px">
-            <div class="section-title small-title">Cash Card</div>
-            <div class="cash-card"><div class="cash-card-brand">Cash Card</div><div class="cash-card-num" id="cashCardNum">•••• •••• •••• 0000</div><div class="cash-card-name" id="cashCardName">Guest</div></div>
-          </div>
-          <div class="panel soft" style="margin-top:12px">
-            <div class="section-title small-title">Activity</div>
-            <div id="cashActivity" class="app-list"></div>
-          </div>
-          <div id="cashMsg" class="small" style="margin-top:8px"></div>
-        </div>
-      </section>
-
-      <section class="tab-page" id="tab-rewards">
-        <div class="hero-card">
-          <div class="eyebrow">Rewards Code</div>
-          <div class="code-big" id="codeBig">----</div>
-          <div class="small light">Show this code at the register → Mobile App (4-code)</div>
-          <div class="stats">
-            <div class="stat"><div class="label">Points</div><div class="value" id="pts">0</div></div>
-            <div class="stat"><div class="label">Balance</div><div class="value" id="bal">$0.00</div></div>
-          </div>
-        </div>
-        <div class="section-title">Wallet</div>
-        <div class="wallet app-wallet"><div class="brand">DSM PAY</div><div class="num" id="cardNum">•••• •••• •••• 0000</div><div class="meta"><span id="cardName">Guest</span><span id="cardBal">$0.00</span></div></div>
-        <div class="quick-actions">
-          <button class="quick" data-go="order"><span class="qi">🍔</span><span>Order</span></button>
-          <button class="quick" data-go="scan"><span class="qi">⌁</span><span>Scan & Pay</span></button>
-          <button class="quick" data-go="deals"><span class="qi">★</span><span>Deals</span></button>
-        </div>
-        <div class="panel soft">
-          <div class="section-title small-title">My Redeemed Rewards</div>
-          <ul id="myRewards" class="app-list"></ul>
-        </div>
-      </section>
-
-      <section class="tab-page" id="tab-order">
-        <div class="section-title">Order</div>
-        <div id="orderShop">
-          <div class="panel soft"><div class="small">Order in the app and confirm with your rewards card.</div></div>
-          <div id="orderMenu" class="menu-grid" style="margin-top:10px"></div>
-          <div class="panel soft" style="margin-top:12px">
-            <div class="section-title small-title">Your Cart</div>
-            <div id="orderCart"></div>
-            <div class="total" style="margin-top:8px">Total: <span id="orderTotal">$0.00</span></div>
-            <button class="btn block green" id="orderCheckout" style="margin-top:10px">Review & Confirm</button>
-          </div>
-        </div>
-        <div id="orderConfirm" style="display:none">
-          <div class="panel soft">
-            <div class="section-title small-title">Confirm Order</div>
-            <div id="confirmSummary" class="small"></div>
-            <div class="total" style="margin-top:8px">Total: <span id="confirmTotal">$0.00</span></div>
-            <div class="small" id="confirmCard" style="margin-top:6px"></div>
-            <div class="row" style="margin-top:12px"><button class="btn green block" id="confirmOrderPay">Confirm & Pay</button></div>
-            <button class="btn secondary block" id="backToCart" style="margin-top:8px">Back</button>
-            <div id="confirmMsg" class="small" style="margin-top:8px"></div>
-          </div>
-        </div>
-        <div id="orderReceipt" style="display:none">
-          <div class="panel soft" id="receiptCard"></div>
-          <button class="btn block" id="newOrderBtn" style="margin-top:12px">Start New Order</button>
-        </div>
-      </section>
-
-      <section class="tab-page" id="tab-scan">
-        <div class="section-title">Tap / Scan to Pay</div>
-        <div class="panel soft">
-          <p class="small">When the register shows Tap to Pay, scan the code with your camera to pay from your DSM Pay balance.</p>
-          <div class="row"><button class="btn" id="startScan">Start Scan</button><button class="btn secondary" id="stopScan">Stop</button></div>
-          <div id="scanWrap" style="margin-top:10px;display:none"><video id="video" playsinline></video><canvas id="scanCanvas" style="display:none"></canvas></div>
-          <input type="hidden" id="payPaste" />
-          <label style="margin-top:10px">Scan from photo (if camera unavailable)</label>
-          <input id="qrFile" type="file" accept="image/*" />
-          <button class="btn green block" style="margin-top:10px" id="confirmPay">Pay Now</button>
-          <div id="payMsg" class="small" style="margin-top:8px"></div>
-        </div>
-      </section>
-
-      <section class="tab-page" id="tab-deals">
-        <div class="section-title">Deals & Offers</div>
-        <div class="panel soft"><div id="offers" class="small"></div></div>
-        <p class="small" style="margin-top:10px">Earn points on orders and redeem offers at the register.</p>
-      </section>
-
-      <section class="tab-page" id="tab-account">
-        <div class="section-title">Account</div>
-        <div class="panel soft">
-          <div class="small">Signed in as</div>
-          <div style="font-weight:800;font-size:1.2rem" id="acctName">Guest</div>
-          <div class="small" id="acctCode">Rewards code: ----</div>
-          <button class="btn secondary block" id="logoutBtn" style="margin-top:10px">Log Out</button>
-        </div>
-        <div class="panel soft" style="margin-top:10px">
-          <div class="section-title small-title">Sync</div>
-          <div class="small"><b>Automatic:</b> Supabase sync is on by default across all devices (no join needed).</div>
-          <div class="row" style="margin-top:8px"><button class="btn secondary" id="pullSync2">Refresh Sync</button></div>
-          <div id="syncMsg2" class="small" style="margin-top:8px"></div>
-          <details style="margin-top:8px"><summary class="small">Advanced (optional)</summary>
-            <label>Room</label><input id="syncIdInput2" placeholder="main" />
-            <label>Supabase URL</label><input id="sbUrl2" placeholder="https://xxxx.supabase.co" />
-            <label>Supabase Anon Key</label><input id="sbKey2" type="password" placeholder="anon public key" />
-            <div class="row" style="margin-top:8px"><button class="btn" id="connectSupabase2">Reconnect Supabase</button><button class="btn secondary" id="joinSync2">Set Room</button></div>
-            <input id="ghToken2" type="password" placeholder="GitHub token (gist)" style="margin-top:8px" />
-            <div class="row" style="margin-top:8px"><button class="btn secondary" id="joinGist2">Join Gist</button><button class="btn secondary" id="createSync2">Create Auto</button></div>
-          </details>
-        </div>
-        <div class="panel soft" style="margin-top:10px">
-          <div class="section-title small-title">Cards & Switch</div>
-          <p class="small">Switch between your cards/accounts on this device. (Owner/admin can add unlimited cards in Admin.)</p>
-          <div id="cardSwitcher" style="margin-top:8px"></div>
-        </div>
-        <div class="panel soft" style="margin-top:10px">
-          <a class="btn secondary block" href="admin.html" style="text-align:center;text-decoration:none">Admin</a>
-          <p class="small" style="margin-top:10px">Add to Home Screen for the full app experience.</p>
-        </div>
-      </section>
-    </main>
-
-    <nav class="tabbar">
-      <button class="tab active" data-tab="home"><span class="ico">⌂</span><span>Home</span></button>
-      <button class="tab" data-tab="cash"><span class="ico">$</span><span>Cash</span></button>
-      <button class="tab" data-tab="order"><span class="ico">🍔</span><span>Order</span></button>
-      <button class="tab" data-tab="rewards"><span class="ico">★</span><span>Rewards</span></button>
-      <button class="tab" data-tab="account"><span class="ico">☺</span><span>Account</span></button>
-    </nav>
   </div>
 
   <script>
