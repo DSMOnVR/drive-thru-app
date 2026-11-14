@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body class="board">
-  <div class="hero"><h1>Menu</h1><div class="small" style="color:#ffd">Fresh, fast, and tasty. <span class="kbd">Alt</span>+<span class="kbd">D</span> to add items (admin).</div></div>
+  <div class="hero"><h1>Menu</h1><div class="small" style="color:#ffd">Fresh, fast, and tasty. <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">E</span> to add items (admin).</div></div>
   <div class="cats" id="cats"></div>
   <div class="grid" id="menuGrid"></div>
 
@@ -40,10 +40,10 @@
       const items=d.menu.filter(m=>activeCat==='All'||(m.category||'Other')===activeCat);
       document.getElementById('menuGrid').innerHTML=items.map(m=>`
         <div class="tile"><img src="${m.img||'https://via.placeholder.com/400x240?text=Item'}" alt=""><div class="info"><div class="name">${m.name}</div><div class="price">${DT.fmt(m.price)}</div></div></div>
-      `).join('') || '<div style="padding:20px;color:#bbb">No items yet. Press Alt+D to add.</div>';
+      `).join('') || '<div style="padding:20px;color:#bbb">No items yet. Press Ctrl+Shift+E to add.</div>';
     }
     const modal=document.getElementById('addModal');
-    window.addEventListener('keydown',e=>{if(e.altKey && (e.key==='d'||e.key==='D')){e.preventDefault(); modal.classList.add('open'); document.getElementById('mName').focus();}});
+    window.addEventListener('keydown',e=>{if(e.ctrlKey && e.shiftKey && (e.key==='e'||e.key==='E')){e.preventDefault(); modal.classList.add('open'); document.getElementById('mName').focus();}});
     document.getElementById('closeAdd').onclick=()=>modal.classList.remove('open');
     modal.addEventListener('click',e=>{if(e.target===modal) modal.classList.remove('open')});
     async function fileToDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file);});}

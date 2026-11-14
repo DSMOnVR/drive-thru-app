@@ -5,7 +5,7 @@ Browser-based DSMDonalds drive-thru demo with a **PC register/menu** and an **iP
 ## Pages
 - `index.html` – launcher
 - `register.html` – **PC Register**: add menu items to cart, link rewards account by **4-digit code** (Mobile App button), redeem offers, take cash/card or **Phone Scan payment** (shows QR).
-- `menu.html` – **PC Menu Board** (McDonald's/Burger King style display). Press **Alt+D** to open the **Menu Adder** to add Food/Drinks items with **name, category, price, and picture (URL or upload)**.
+- `menu.html` – **PC Menu Board** (McDonald's/Burger King style display). Press **Ctrl+Shift+E** to open the **Menu Adder** to add Food/Drinks items with **name, category, price, and picture (URL or upload)**.
 - `phone.html` – **iPhone Phone App**: shows rewards **4-digit code**, points, offers/free rewards, **fake credit card & balance**, and **Scan & Pay** to scan the register's payment QR and pay from balance.
 - `admin.html` – **Admin**: create/manage fake cards & rewards users (name, 4-code, balance, points), add offers/free food, configure points-per-dollar, reset demo data.
 
@@ -24,7 +24,7 @@ Browser-based DSMDonalds drive-thru demo with a **PC register/menu** and an **iP
 - Data is stored in **browser localStorage** (`dt_app_v1`), so it is **per device/browser**. A PC and a separate iPhone will not automatically share the same localStorage over static hosting.
   - For a full demo on one machine, open Register/Menu/Phone in the same browser/profile.
   - For cross-device use, create matching users/codes in Admin on each device, or adapt the app to a shared backend (e.g. Firebase/Supabase) later.
-- Menu items added via **Alt+D** are saved in that browser's storage.
+- Menu items added via **Ctrl+Shift+E** are saved in that browser's storage.
 
 ## IPA / signing
 A signed `.ipa` cannot be produced on Windows without macOS/Xcode. This repo provides the web app you can host on GitHub and use/install on iPhone via Safari. If you need a native wrapper, you can later wrap this folder with a tool like Capacitor on a Mac to build an IPA and sign it with your own signing setup.
