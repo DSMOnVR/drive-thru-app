@@ -45,14 +45,27 @@
         <hr>
         <h3 style="margin:0 0 8px">Real-time Sync</h3>
         <p class="small">Use the same Sync ID on Admin/Register/Menu and Phone so users (e.g. Dylan), points, payments, offers, and menu stay in sync across devices.</p>
-        <label>Sync ID</label>
-        <input id="syncId" placeholder="Sync ID / Gist ID" />
-        <label>GitHub Token (optional, for reliable Gist sync)</label>
-        <input id="ghToken" type="password" placeholder="ghp_... (gist scope)" />
-        <div class="row" style="margin-top:8px"><button class="btn secondary" id="joinSync">Join Sync</button><button class="btn secondary" id="createSync">Create Sync</button><button class="btn secondary" id="pullSync">Refresh</button></div>
-        <div class="row" style="margin-top:8px"><button class="btn secondary" id="createGist">Create Gist Sync</button><button class="btn secondary" id="joinGist">Join Gist Sync</button></div>
+        <label>Sync ID / Room</label>
+        <input id="syncId" placeholder="Sync ID / Room (e.g. main)" />
+        <details style="margin-top:8px"><summary><b>Supabase Sync (recommended if CORS blocks auto sync)</b></summary>
+          <p class="small" style="margin:8px 0">Create a free Supabase project, run the SQL below in SQL Editor, then enter your Project URL + anon public key here (same on all devices).</p>
+          <pre class="small" style="white-space:pre-wrap;background:#f7f7f7;padding:8px;border-radius:8px;border:1px solid #eee">create table if not exists app_state (
+  id text primary key,
+  data jsonb,
+  updated_at timestamptz default now()
+);
+alter table app_state enable row level security;
+create policy "anon all" on app_state for all to anon using (true) with check (true);</pre>
+          <label>Supabase Project URL</label><input id="sbUrl" placeholder="https://xxxx.supabase.co" />
+          <label>Supabase Anon Key</label><input id="sbKey" type="password" placeholder="anon public key" />
+          <div class="row" style="margin-top:8px"><button class="btn" id="connectSupabase">Connect Supabase Sync</button></div>
+        </details>
+        <div class="row" style="margin-top:8px"><button class="btn secondary" id="joinSync">Join Sync</button><button class="btn secondary" id="createSync">Create Auto Sync</button><button class="btn secondary" id="pullSync">Refresh</button></div>
+        <details style="margin-top:8px"><summary class="small">Advanced: GitHub Gist sync</summary>
+          <label>GitHub Token (gist scope)</label><input id="ghToken" type="password" placeholder="ghp_..." />
+          <div class="row" style="margin-top:8px"><button class="btn secondary" id="createGist">Create Gist Sync</button><button class="btn secondary" id="joinGist">Join Gist Sync</button></div>
+        </details>
         <div id="syncMsg" class="small" style="margin-top:8px"></div>
-        <p class="small">If auto sync is blocked by CORS/network, use Gist sync: create a GitHub token with <b>gist</b> access, click Create Gist Sync, then use the same Gist ID + token on all devices.</p>
         <hr>
         <h3 style="margin:0 0 8px">Manual Export / Import</h3>
         <p class="small">Backup/copy data manually if needed.</p>
@@ -119,11 +132,12 @@
         localStorage.setItem(DT.KEY, JSON.stringify(d)); alert('Imported. Reloading...'); location.reload();
       }catch(e){alert('Import failed: '+e.message);}
     };
-    function refreshSync(){const c=DT.getSync(); document.getElementById('syncId').value=c?c.id:''; if(c&&c.token) document.getElementById('ghToken').value=c.token; document.getElementById('syncMsg').textContent=c?('Synced ('+c.provider+') · '+c.id):'Not synced (local only).';}
+    function refreshSync(){const c=DT.getSync(); document.getElementById('syncId').value=c?c.id:''; if(c&&c.token) document.getElementById('ghToken').value=c.token; if(c&&c.provider==='supabase'){document.getElementById('sbUrl').value=c.url||''; document.getElementById('sbKey').value=c.key||'';} document.getElementById('syncMsg').textContent=c?('Synced ('+c.provider+') · '+c.id):'Not synced (local only).';}
+    document.getElementById('connectSupabase').onclick=async()=>{const m=document.getElementById('syncMsg'); try{m.textContent='Connecting Supabase...'; const c=await DT.connectSupabase({url:document.getElementById('sbUrl').value,key:document.getElementById('sbKey').value,id:document.getElementById('syncId').value||'main'}); refreshSync(); m.textContent='Supabase sync connected (room: '+c.id+'). Use same URL/key/room on all devices.';}catch(e){m.textContent='Error: '+e.message;}};
     document.getElementById('createSync').onclick=async()=>{const m=document.getElementById('syncMsg'); try{m.textContent='Creating...'; const c=await DT.createSyncRoom(); refreshSync(); m.textContent='Created. Use this ID on all devices: '+c.id;}catch(e){m.textContent='Error: '+e.message;}};
     document.getElementById('joinSync').onclick=async()=>{const m=document.getElementById('syncMsg'); try{m.textContent='Joining...'; const token=document.getElementById('ghToken').value.trim(); await DT.joinSyncRoom(document.getElementById('syncId').value.trim(), token?'gist':null, {token, forceGist:!!token}); refreshSync(); m.textContent='Joined sync.';}catch(e){m.textContent='Error: '+e.message;}};
-    document.getElementById('createGist').onclick=async()=>{const m=document.getElementById('syncMsg'); try{const token=document.getElementById('ghToken').value.trim(); if(!token){m.textContent='Enter a GitHub token with gist scope.';return;} m.textContent='Creating Gist sync...'; const c=await DT.createSyncRoom({provider:'gist',token}); refreshSync(); m.textContent='Gist sync created. Use this Gist ID and token on all devices: '+c.id;}catch(e){m.textContent='Error: '+e.message;}};
-    document.getElementById('joinGist').onclick=async()=>{const m=document.getElementById('syncMsg'); try{const token=document.getElementById('ghToken').value.trim(); const id=document.getElementById('syncId').value.trim(); if(!id){m.textContent='Enter Gist ID.';return;} m.textContent='Joining Gist sync...'; await DT.joinSyncRoom(id,'gist',{token}); refreshSync(); m.textContent='Joined Gist sync.';}catch(e){m.textContent='Error: '+e.message;}};
+    const cg=document.getElementById('createGist'); if(cg) cg.onclick=async()=>{const m=document.getElementById('syncMsg'); try{const token=document.getElementById('ghToken').value.trim(); if(!token){m.textContent='Enter a GitHub token with gist scope.';return;} m.textContent='Creating Gist sync...'; const c=await DT.createSyncRoom({provider:'gist',token}); refreshSync(); m.textContent='Gist sync created. Use this Gist ID and token on all devices: '+c.id;}catch(e){m.textContent='Error: '+e.message;}};
+    const jg=document.getElementById('joinGist'); if(jg) jg.onclick=async()=>{const m=document.getElementById('syncMsg'); try{const token=document.getElementById('ghToken').value.trim(); const id=document.getElementById('syncId').value.trim(); if(!id){m.textContent='Enter Gist ID.';return;} m.textContent='Joining Gist sync...'; await DT.joinSyncRoom(id,'gist',{token}); refreshSync(); m.textContent='Joined Gist sync.';}catch(e){m.textContent='Error: '+e.message;}};
     document.getElementById('pullSync').onclick=async()=>{if(!DT.getSync()){document.getElementById('syncMsg').textContent='No sync room.';return;} await DT.pullSync(true); refreshSync(); document.getElementById('syncMsg').textContent='Refreshed.'; render();};
     document.getElementById('reset').onclick=()=>{if(confirm('Reset all demo data?')){localStorage.removeItem(DT.KEY); DT.seed(); render(); refreshSync();}};
     window.addEventListener('storage',render); window.addEventListener('dt-update',render);

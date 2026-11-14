@@ -64,15 +64,27 @@
     if(!cfg) return '';
     if(cfg.provider==='pantry') return 'https://getpantry.cloud/apiv1/pantry/'+encodeURIComponent(cfg.id)+'/basket/dsmd_state';
     if(cfg.provider==='gist') return 'https://api.github.com/gists/'+encodeURIComponent(cfg.id);
+    if(cfg.provider==='supabase') return (cfg.url||'').replace(/\/$/,'')+'/rest/v1/'+encodeURIComponent(cfg.table||'app_state');
     return (cfg.base||'').replace(/\/$/,'')+'/'+encodeURIComponent(cfg.id||'');
   }
+  function sbHeaders(cfg, extra){ return Object.assign({'apikey':cfg.key,'Authorization':'Bearer '+cfg.key,'Content-Type':'application/json'}, extra||{}); }
   async function ghFetch(cfg, opts){
     opts=opts||{}; const h=Object.assign({'Accept':'application/vnd.github+json'}, opts.headers||{});
     if(cfg.token) h['Authorization']='Bearer '+cfg.token;
     return fetch(syncUrl(cfg), Object.assign({}, opts, {headers:h}));
   }
+  async function connectSupabase(opts){
+    opts=opts||{}; const url=String(opts.url||'').trim().replace(/\/$/,''); const key=String(opts.key||'').trim(); let id=String(opts.id||'').trim();
+    if(!url||!key) throw new Error('Enter Supabase Project URL and anon key.');
+    if(!id) id='main';
+    const cfg={provider:'supabase',url,key,id,table:'app_state'}; setSyncCfg(cfg);
+    await pushSync();
+    await pullSync(true);
+    startSync(); return cfg;
+  }
   async function createSyncRoom(opts){
     opts=opts||{}; const d=load();
+    if(opts.provider==='supabase'){ return connectSupabase(opts); }
     if(opts.provider==='gist'){
       if(!opts.token) throw new Error('GitHub token required to create gist sync.');
       const res=await fetch('https://api.github.com/gists',{method:'POST',headers:{'Accept':'application/vnd.github+json','Authorization':'Bearer '+opts.token,'Content-Type':'application/json'},body:JSON.stringify({description:'DSMDonalds sync',public:false,files:{'dsmd_state.json':{content:JSON.stringify(d)}}})});
@@ -106,9 +118,10 @@
     throw new Error('Could not create sync room (network/CORS blocked). Try GitHub Gist sync in Admin (works with a GitHub token), or use Manual Export/Import.');
   }
   async function joinSyncRoom(id, provider, opts){
-    opts=opts||{}; id=String(id||'').trim(); if(!id) throw new Error('Enter a Sync ID');
+    opts=opts||{}; if(provider==='supabase' || opts.url){ return connectSupabase({url:opts.url, key:opts.key, id:id||opts.id||'main'}); }
+    id=String(id||'').trim(); if(!id) throw new Error('Enter a Sync ID');
     if(!provider){
-      if(opts.token || /^[a-f0-9]{20,}$/i.test(id) && id.length>=20 && opts.forceGist) provider='gist';
+      if(opts.forceGist || (opts.token && /^[a-f0-9]{20,}$/i.test(id))) provider='gist';
       else if(id.indexOf('-')>-1 && id.length>20) provider='pantry';
       else if(/^[a-f0-9]{32,}$/i.test(id)) provider='jsonstorage';
       else provider='jsonblob';
@@ -127,7 +140,12 @@
     const cfg=getSync(); if(!cfg) return;
     try{
       let remoteRaw;
-      if(cfg.provider==='gist'){
+      if(cfg.provider==='supabase'){
+        const url=syncUrl(cfg)+'?id=eq.'+encodeURIComponent(cfg.id)+'&select=data';
+        const res=await fetch(url,{headers:sbHeaders(cfg)}); if(!res.ok) return;
+        const rows=await res.json(); if(!Array.isArray(rows) || !rows[0]) return;
+        remoteRaw=rows[0].data;
+      } else if(cfg.provider==='gist'){
         const res=await ghFetch(cfg,{method:'GET'}); if(!res.ok) return;
         const j=await res.json(); const f=j.files&&j.files['dsmd_state.json']; if(!f) return;
         remoteRaw = f.truncated ? null : JSON.parse(f.content||'{}');
@@ -152,7 +170,10 @@
     pushing=true;
     try{
       const d=load();
-      if(cfg.provider==='gist'){
+      if(cfg.provider==='supabase'){
+        const url=syncUrl(cfg)+'?on_conflict=id';
+        await fetch(url,{method:'POST',headers:sbHeaders(cfg,{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify([{id:cfg.id||'main',data:d,updated_at:new Date().toISOString()}])});
+      } else if(cfg.provider==='gist'){
         if(!cfg.token) return; // read-only without token
         await ghFetch(cfg,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({files:{'dsmd_state.json':{content:JSON.stringify(d)}}})});
       } else {
@@ -169,7 +190,7 @@
 
   window.DT={KEY,SYNC_KEY,SESSION_KEY,load,save,uid,now,fmt,genCode,makeQRUrl,getUserByCode,getUserById,upsertUser,addMenuItem,setPendingPayment,clearPendingPayment,seed,normalize,
     getSession,setSession,currentUser,logout,
-    getSync,setSyncCfg,createSyncRoom,joinSyncRoom,pullSync,pushSync,startSync,stopSync};
+    getSync,setSyncCfg,createSyncRoom,joinSyncRoom,pullSync,pushSync,startSync,stopSync,connectSupabase};
   startSync();
   document.addEventListener('visibilitychange',()=>{if(!document.hidden) pullSync(false)});
 })();

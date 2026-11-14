@@ -21,11 +21,22 @@ Browser-based DSMDonalds drive-thru demo with a **PC register/menu** and an **iP
 3. Use **Share → Add to Home Screen** to install DSMDonalds like an app (standalone/full-screen feel).
 4. Camera QR scanning requires HTTPS (GitHub Pages provides this) and browser support for `BarcodeDetector`; if unavailable, paste the payment data.
 
-## Important notes (static hosting)
-- Data is stored in **browser localStorage** (`dt_app_v1`), so it is **per device/browser**. A PC and a separate iPhone will not automatically share the same localStorage over static hosting.
-  - For a full demo on one machine, open Register/Menu/Phone in the same browser/profile.
-  - For cross-device use, use **Admin → Data / Sync (Export & Import)** to copy data (users/cards, points, offers, menu, settings) from one device and import on the other, or adapt the app to a shared backend (e.g. Firebase/Supabase) for automatic real-time sync.
-- Menu items added via **Ctrl+Shift+E** are saved in that browser's storage (included in export/import).
+## Sync & data
+- Data is stored in **browser localStorage** (`dt_app_v1`) and can sync across devices when a Sync provider is configured.
+- **Supabase sync (recommended):** in Admin/Phone → Sync, connect with your Supabase Project URL + anon key and a room ID (same on all devices). Setup (Supabase SQL Editor):
+  ```sql
+  create table if not exists app_state (
+    id text primary key,
+    data jsonb,
+    updated_at timestamptz default now()
+  );
+  alter table app_state enable row level security;
+  create policy "anon all" on app_state for all to anon using (true) with check (true);
+  ```
+  This enables real-time-ish sync (polling) for users/cards (e.g. Dylan), points, offers, menu, and scan-to-pay pending payments.
+- **Auto Sync:** tries public stores (e.g. Pantry) and may be blocked by CORS/network in some browsers.
+- **Manual Export/Import:** Admin → Manual Export / Import always works as a fallback.
+- Menu items added via **Ctrl+Shift+E** are saved in synced data. For cross-device scan-to-pay, all devices must use the same sync.
 
 ## IPA / signing
 A signed `.ipa` cannot be produced on Windows without macOS/Xcode. This repo provides the web app you can host on GitHub and use/install on iPhone via Safari. If you need a native wrapper, you can later wrap this folder with a tool like Capacitor on a Mac to build an IPA and sign it with your own signing setup.

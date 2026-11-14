@@ -102,12 +102,19 @@
         <div class="panel soft" style="margin-top:10px">
           <div class="section-title small-title">Sync</div>
           <div class="small">Use the same Sync ID on PC/register/admin and phone for real-time sync.</div>
-          <label>Sync ID / Gist ID</label>
-          <input id="syncIdInput2" placeholder="Sync ID or Gist ID" />
-          <label>GitHub Token (for Gist sync)</label>
-          <input id="ghToken2" type="password" placeholder="ghp_... (gist scope)" />
-          <div class="row" style="margin-top:8px"><button class="btn secondary" id="joinSync2">Join</button><button class="btn secondary" id="createSync2">Create</button><button class="btn secondary" id="pullSync2">Refresh</button></div>
-          <div class="row" style="margin-top:8px"><button class="btn secondary" id="joinGist2">Join Gist</button></div>
+          <label>Sync ID / Room</label>
+          <input id="syncIdInput2" placeholder="Sync ID or room (e.g. main)" />
+          <details style="margin-top:8px"><summary><b>Supabase Sync</b></summary>
+            <label>Supabase Project URL</label><input id="sbUrl2" placeholder="https://xxxx.supabase.co" />
+            <label>Supabase Anon Key</label><input id="sbKey2" type="password" placeholder="anon public key" />
+            <div class="row" style="margin-top:8px"><button class="btn" id="connectSupabase2">Connect Supabase</button></div>
+            <p class="small">Use same Supabase URL/key/room on all devices. Create table <code>app_state(id text primary key, data jsonb, updated_at timestamptz default now())</code> with anon RLS policy.</p>
+          </details>
+          <div class="row" style="margin-top:8px"><button class="btn secondary" id="joinSync2">Join</button><button class="btn secondary" id="createSync2">Create Auto</button><button class="btn secondary" id="pullSync2">Refresh</button></div>
+          <details style="margin-top:8px"><summary class="small">Advanced: GitHub Gist</summary>
+            <label>GitHub Token</label><input id="ghToken2" type="password" placeholder="ghp_..." />
+            <div class="row" style="margin-top:8px"><button class="btn secondary" id="joinGist2">Join Gist</button></div>
+          </details>
           <div id="syncMsg2" class="small" style="margin-top:8px"></div>
         </div>
         <div class="panel soft" style="margin-top:10px">
@@ -131,7 +138,7 @@
     let stream=null, detector=null, scanTimer=null;
     function $(id){return document.getElementById(id)}
     function showAuth(show){$('authScreen').style.display=show?'flex':'none'; $('appShell').style.display=show?'none':'block';}
-    function refreshSyncInputs(){const cfg=DT.getSync(); const v=cfg?cfg.id:''; if($('syncIdInput')) $('syncIdInput').value=v; if($('syncIdInput2')) $('syncIdInput2').value=v; if(cfg&&cfg.token&&$('ghToken2')) $('ghToken2').value=cfg.token;}
+    function refreshSyncInputs(){const cfg=DT.getSync(); const v=cfg?cfg.id:''; if($('syncIdInput')) $('syncIdInput').value=v; if($('syncIdInput2')) $('syncIdInput2').value=v; if(cfg&&cfg.token&&$('ghToken2')) $('ghToken2').value=cfg.token; if(cfg&&cfg.provider==='supabase'){ if($('sbUrl2')) $('sbUrl2').value=cfg.url||''; if($('sbKey2')) $('sbKey2').value=cfg.key||''; }}
     function render(){
       const u=DT.currentUser();
       if(!u){showAuth(true); refreshSyncInputs(); return;}
@@ -180,6 +187,7 @@
     $('createSync2').onclick=()=>doCreateSync($('syncMsg2'));
     $('joinSync2').onclick=()=>doJoinSync($('syncMsg2'),$('syncIdInput2'),$('ghToken2'));
     $('joinGist2').onclick=async()=>{const out=$('syncMsg2'); try{const token=$('ghToken2').value.trim(); const id=$('syncIdInput2').value.trim(); if(!id){out.textContent='Enter Gist ID.';return;} out.textContent='Joining Gist...'; await DT.joinSyncRoom(id,'gist',{token}); out.textContent='Joined Gist sync: '+id; refreshSyncInputs(); render();}catch(e){out.textContent='Sync error: '+e.message;}};
+    if($('connectSupabase2')) $('connectSupabase2').onclick=async()=>{const out=$('syncMsg2'); try{out.textContent='Connecting Supabase...'; const c=await DT.connectSupabase({url:$('sbUrl2').value,key:$('sbKey2').value,id:$('syncIdInput2').value||'main'}); out.textContent='Supabase connected (room '+c.id+'). Use same settings on all devices.'; refreshSyncInputs(); render();}catch(e){out.textContent='Sync error: '+e.message;}};
     $('pullSync2').onclick=async()=>{if(!DT.getSync()){$('syncMsg2').textContent='No sync room joined.';return;} await DT.pullSync(true); $('syncMsg2').textContent='Refreshed.'; render();};
 
     function showTab(name){
