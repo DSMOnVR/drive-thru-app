@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="DSMDonalds" />
   <title>Admin</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
@@ -109,5 +111,6 @@
     document.getElementById('reset').onclick=()=>{if(confirm('Reset all demo data?')){localStorage.removeItem(DT.KEY); DT.seed(); render();}};
     window.addEventListener('storage',render); render();
   </script>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}</script>
 </body>
 </html>

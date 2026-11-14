@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#c8102e" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="assets/icon.svg" />
   <title>DSMDonalds</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
@@ -20,5 +22,6 @@
     </div>
     <p class="hint">Tip: on iPhone open Phone App in Safari and use Share → Add to Home Screen.</p>
   </main>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}</script>
 </body>
 </html>

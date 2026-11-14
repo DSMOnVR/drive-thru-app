@@ -4,42 +4,85 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>Phone Rewards & Pay</title>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="DSMDonalds" />
+  <meta name="theme-color" content="#c8102e" />
+  <title>DSMDonalds App</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="assets/icon.svg" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body>
-  <div class="topbar"><div class="title">Phone App</div><a href="index.html">Home</a></div>
-  <div class="container phone">
-    <div class="panel">
-      <div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Rewards</h2><select id="userSelect" style="max-width:180px"></select></div>
-      <div class="small">Show this 4-code to the register (Mobile App button) to earn points.</div>
-      <div class="code-big" id="codeBig">----</div>
-      <div class="row"><div class="panel" style="flex:1;text-align:center"><div class="small">Points</div><div style="font-size:1.6rem;font-weight:900" id="pts">0</div></div><div class="panel" style="flex:1;text-align:center"><div class="small">Balance</div><div style="font-size:1.6rem;font-weight:900" id="bal">$0.00</div></div></div>
-    </div>
+<body class="app-body">
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="app-brand"><span class="arches">M</span><span>DSMDonalds</span></div>
+      <select id="userSelect" class="user-pill"></select>
+    </header>
 
-    <div class="panel" style="margin-top:12px">
-      <h3 style="margin:0 0 8px">Wallet (Fake Card)</h3>
-      <div class="wallet"><div class="brand">DSM PAY</div><div class="num" id="cardNum">•••• •••• •••• 0000</div><div class="meta"><span id="cardName">Guest</span><span id="cardBal">$0.00</span></div></div>
-      <p class="small" style="margin:8px 0 0">Admin can create cards and set balances in <a href="admin.html">Admin</a>.</p>
-    </div>
+    <main class="app-main">
+      <section class="tab-page active" id="tab-home">
+        <div class="hero-card">
+          <div class="eyebrow">My Rewards</div>
+          <div class="code-big" id="codeBig">----</div>
+          <div class="small light">Show this code at the register → Mobile App (4-code)</div>
+          <div class="stats">
+            <div class="stat"><div class="label">Points</div><div class="value" id="pts">0</div></div>
+            <div class="stat"><div class="label">Balance</div><div class="value" id="bal">$0.00</div></div>
+          </div>
+        </div>
+        <div class="section-title">Wallet</div>
+        <div class="wallet app-wallet"><div class="brand">DSM PAY</div><div class="num" id="cardNum">•••• •••• •••• 0000</div><div class="meta"><span id="cardName">Guest</span><span id="cardBal">$0.00</span></div></div>
+        <div class="quick-actions">
+          <button class="quick" data-go="scan"><span class="qi">⌁</span><span>Scan & Pay</span></button>
+          <button class="quick" data-go="deals"><span class="qi">★</span><span>Deals</span></button>
+          <button class="quick" data-go="account"><span class="qi">⚙</span><span>Account</span></button>
+        </div>
+        <div class="panel soft">
+          <div class="section-title small-title">Redeemed Rewards</div>
+          <ul id="myRewards" class="app-list"></ul>
+        </div>
+      </section>
 
-    <div class="panel" style="margin-top:12px">
-      <h3 style="margin:0 0 8px">Scan & Pay (Register QR)</h3>
-      <p class="small">Scan the payment QR shown on the PC register. Uses camera when supported; otherwise paste payment data.</p>
-      <div class="row"><button class="btn" id="startScan">Start Camera Scan</button><button class="btn secondary" id="stopScan">Stop</button></div>
-      <div id="scanWrap" style="margin-top:8px;display:none"><video id="video" playsinline></video></div>
-      <label>Or paste scanned/payment data</label>
-      <textarea id="payPaste" rows="3" placeholder='{"t":"pay","id":"...","amount":...}'></textarea>
-      <button class="btn green block" style="margin-top:8px" id="confirmPay">Confirm & Pay from Balance</button>
-      <div id="payMsg" class="small" style="margin-top:8px"></div>
-    </div>
+      <section class="tab-page" id="tab-scan">
+        <div class="section-title">Scan & Pay</div>
+        <div class="panel soft">
+          <p class="small">Scan the payment QR shown on the PC register to pay with your DSM Pay balance.</p>
+          <div class="row"><button class="btn" id="startScan">Start Camera Scan</button><button class="btn secondary" id="stopScan">Stop</button></div>
+          <div id="scanWrap" style="margin-top:10px;display:none"><video id="video" playsinline></video></div>
+          <label>Or paste payment data</label>
+          <textarea id="payPaste" rows="3" placeholder='{"t":"pay","id":"...","amount":...}'></textarea>
+          <button class="btn green block" style="margin-top:10px" id="confirmPay">Confirm & Pay</button>
+          <div id="payMsg" class="small" style="margin-top:8px"></div>
+        </div>
+      </section>
 
-    <div class="panel" style="margin-top:12px">
-      <h3 style="margin:0 0 8px">Offers & Free Food</h3>
-      <div id="offers" class="small"></div>
-      <h4 style="margin:12px 0 6px">Redeemed / My Rewards</h4>
-      <ul id="myRewards" class="list"></ul>
-    </div>
+      <section class="tab-page" id="tab-deals">
+        <div class="section-title">Deals & Offers</div>
+        <div class="panel soft"><div id="offers" class="small"></div></div>
+        <p class="small" style="margin-top:10px">Earn points on orders and redeem offers at the register. Admin can add offers.</p>
+      </section>
+
+      <section class="tab-page" id="tab-account">
+        <div class="section-title">Account</div>
+        <div class="panel soft">
+          <div class="small">Signed in as</div>
+          <div style="font-weight:800;font-size:1.2rem" id="acctName">Guest</div>
+          <div class="small" id="acctCode">Code: ----</div>
+        </div>
+        <div class="panel soft" style="margin-top:10px">
+          <div class="row"><a class="btn secondary block" href="admin.html" style="text-align:center;text-decoration:none">Open Admin</a></div>
+          <div class="row" style="margin-top:8px"><a class="btn secondary block" href="index.html" style="text-align:center;text-decoration:none">Home / Stations</a></div>
+          <p class="small" style="margin-top:10px">Tip: Share → Add to Home Screen for the full app experience. Use Admin → Export/Import to sync data across devices.</p>
+        </div>
+      </section>
+    </main>
+
+    <nav class="tabbar">
+      <button class="tab active" data-tab="home"><span class="ico">⌂</span><span>Home</span></button>
+      <button class="tab" data-tab="scan"><span class="ico">⌁</span><span>Scan</span></button>
+      <button class="tab" data-tab="deals"><span class="ico">★</span><span>Deals</span></button>
+      <button class="tab" data-tab="account"><span class="ico">☺</span><span>Account</span></button>
+    </nav>
   </div>
 
   <script src="js/app.js"></script>
@@ -63,9 +106,11 @@
       document.getElementById('cardNum').textContent='•••• •••• •••• '+(u.cardLast4||String(u.code||'0000').padStart(4,'0'));
       document.getElementById('cardName').textContent=u.name||'Guest';
       document.getElementById('cardBal').textContent=DT.fmt(u.balance||0);
-      document.getElementById('offers').innerHTML = d.offers.length ? '<ul class="list">'+d.offers.map(o=>`<li><b>${o.title}</b> — ${o.cost} pts ${o.desc?'<span class="small">('+o.desc+')</span>':''}</li>`).join('')+'</ul>' : 'No offers yet. Admin can add offers.';
+      const an=document.getElementById('acctName'); if(an) an.textContent=u.name||'Guest';
+      const ac=document.getElementById('acctCode'); if(ac) ac.textContent='Rewards code: '+(u.code||'----');
+      document.getElementById('offers').innerHTML = d.offers.length ? '<ul class="app-list deals">'+d.offers.map(o=>`<li><div><b>${o.title}</b><div class="small">${o.cost} pts${o.desc?' · '+o.desc:''}</div></div><span class="badge">${o.cost}</span></li>`).join('')+'</ul>' : '<div class="small">No offers yet. Admin can add offers.</div>';
       const mine=(u.offers||[]);
-      document.getElementById('myRewards').innerHTML = mine.length ? mine.map(r=>`<li>${r.title}</li>`).join('') : '<li class="small">None yet</li>';
+      document.getElementById('myRewards').innerHTML = mine.length ? mine.map(r=>`<li>${r.title}</li>`).join('') : '<li class="small">No redeemed rewards yet</li>';
     }
     document.getElementById('userSelect').onchange=e=>{currentUserId=e.target.value; render();};
     async function startScan(){
@@ -98,6 +143,15 @@
       msg.textContent='Payment approved for '+DT.fmt(amt)+'. Register can now "Check Payment" to complete order.';
       render();
     };
+    function showTab(name){
+      document.querySelectorAll('.tab-page').forEach(p=>p.classList.toggle('active', p.id==='tab-'+name));
+      document.querySelectorAll('.tabbar .tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
+      if(name!=='scan') stopScan();
+      window.scrollTo(0,0);
+    }
+    document.querySelectorAll('.tabbar .tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
+    document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go));
+    if('serviceWorker' in navigator){ navigator.serviceWorker.register('./sw.js').catch(()=>{}); }
     window.addEventListener('storage',render); window.addEventListener('dt-update',render);
     render();
   </script>

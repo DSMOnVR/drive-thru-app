@@ -15,10 +15,11 @@ Browser-based DSMDonalds drive-thru demo with a **PC register/menu** and an **iP
 - **Fake credit cards & balances:** Created/edited in Admin (and selectable in Phone App).
 - **Points & offers:** Points awarded per $ on completed orders (configurable in Admin). Offers/free food can be added in Admin and redeemed from the Register when enough points (and shown in Phone App).
 
-## iPhone use
-1. Host the folder on GitHub Pages (or any static host) and open the site in Safari on iPhone.
-2. Open **Phone App** (`phone.html`). Use **Share → Add to Home Screen** for an app-like experience.
-3. Camera QR scanning requires HTTPS (GitHub Pages provides this) and browser support for `BarcodeDetector`; if unavailable, paste the payment data.
+## iPhone use (actual app / PWA)
+1. Host the folder on GitHub Pages (or any static host) and open the site in Safari on iPhone over HTTPS.
+2. Open **Phone App** (`phone.html`). It’s built as an installable PWA with an app-like tabbed UI (Home/Rewards, Scan & Pay, Deals, Account), manifest, and service worker.
+3. Use **Share → Add to Home Screen** to install DSMDonalds like an app (standalone/full-screen feel).
+4. Camera QR scanning requires HTTPS (GitHub Pages provides this) and browser support for `BarcodeDetector`; if unavailable, paste the payment data.
 
 ## Important notes (static hosting)
 - Data is stored in **browser localStorage** (`dt_app_v1`), so it is **per device/browser**. A PC and a separate iPhone will not automatically share the same localStorage over static hosting.
