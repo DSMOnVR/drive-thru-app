@@ -21,6 +21,7 @@
         <label>Card Last 4 (display)</label><input id="uLast4" maxlength="4" placeholder="0000" />
         <label>Balance ($)</label><input id="uBal" type="number" step="0.01" />
         <label>Points</label><input id="uPts" type="number" step="1" />
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px"><input id="uUnlimited" type="checkbox" style="width:auto" /> Unlimited card (no balance limit)</label>
         <div class="row" style="margin-top:12px"><button class="btn" id="saveUser">Save User/Card</button><button class="btn secondary" id="newUser">New</button></div>
       </div>
       <div class="panel">
@@ -75,14 +76,14 @@
   <script src="js/app.js"></script>
   <script>
     function esc(s){return String(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
-    function clearForm(){['uId','uName','uCode','uLast4','uBal','uPts'].forEach(id=>document.getElementById(id).value='');}
+    function clearForm(){['uId','uName','uCode','uLast4','uBal','uPts'].forEach(id=>document.getElementById(id).value=''); document.getElementById('uUnlimited').checked=false;}
     function render(){
       const d=DT.load();
       document.getElementById('ppd').value=d.rewards.pointsPerDollar||10;
       document.getElementById('usersList').innerHTML=d.users.map(u=>`
         <div class="panel" style="margin-bottom:8px">
-          <div><b>${esc(u.name)}</b> <span class="badge">${esc(u.code)}</span></div>
-          <div class="small">Balance ${DT.fmt(u.balance)} · Points ${u.points||0} · Card **** ${esc(u.cardLast4||'')}</div>
+          <div><b>${esc(u.name)}</b> <span class="badge">${esc(u.code)}</span> ${u.unlimited?'<span class="badge" style="background:#2ecc71;color:#062012">Unlimited</span>':''}</div>
+          <div class="small">Balance ${u.unlimited?'Unlimited':DT.fmt(u.balance)} · Points ${u.points||0} · Card **** ${esc(u.cardLast4||'')}</div>
           <div class="row" style="margin-top:8px"><button class="btn secondary" data-edit="${u.id}">Edit</button><button class="btn danger" data-del="${u.id}">Delete</button></div>
         </div>`).join('') || '<div class="small">No users yet.</div>';
       document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{
@@ -90,6 +91,7 @@
         document.getElementById('uId').value=u.id; document.getElementById('uName').value=u.name||'';
         document.getElementById('uCode').value=u.code||''; document.getElementById('uLast4').value=u.cardLast4||'';
         document.getElementById('uBal').value=u.balance||0; document.getElementById('uPts').value=u.points||0;
+        document.getElementById('uUnlimited').checked=!!u.unlimited;
       });
       document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
         const dd=DT.load(); dd.users=dd.users.filter(x=>x.id!==b.dataset.del); DT.save(dd); render();
@@ -103,7 +105,7 @@
       const d=DT.load(); const id=document.getElementById('uId').value || DT.uid();
       const name=document.getElementById('uName').value.trim()||'Guest';
       let code=document.getElementById('uCode').value.trim(); if(!/^\d{4}$/.test(code)) code=DT.genCode();
-      const u={id,name,code,cardLast4:document.getElementById('uLast4').value.trim()||code,balance:parseFloat(document.getElementById('uBal').value||'0')||0,points:parseInt(document.getElementById('uPts').value||'0',10)||0,offers:(d.users.find(x=>x.id===id)||{}).offers||[]};
+      const u={id,name,code,cardLast4:document.getElementById('uLast4').value.trim()||code,balance:parseFloat(document.getElementById('uBal').value||'0')||0,points:parseInt(document.getElementById('uPts').value||'0',10)||0,unlimited:document.getElementById('uUnlimited').checked,offers:(d.users.find(x=>x.id===id)||{}).offers||[]};
       const i=d.users.findIndex(x=>x.id===id); if(i>=0) d.users[i]=u; else d.users.push(u); DT.save(d); clearForm(); render();
     };
     document.getElementById('newUser').onclick=clearForm;

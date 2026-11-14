@@ -13,7 +13,7 @@
   <div class="topbar"><div class="title">DSM Register</div><div style="display:flex;gap:10px;align-items:center"><button class="btn secondary" id="mobileAppBtn" style="padding:8px 12px">Rewards Code</button><a href="admin.html">Admin</a></div></div>
   <div class="pos">
     <div class="pos-left">
-      <div class="pos-head"><h2>Menu</h2><div class="small">Tap items to add</div></div>
+      <div class="pos-head"><h2>Menu</h2><div style="display:flex;gap:8px;align-items:center"><div class="small">Tap items to add</div><button class="btn secondary" id="openAddItem" style="padding:8px 12px">+ Add Item</button></div></div>
       <div id="menuGrid" class="menu-grid"></div>
       <div class="panel" style="margin-top:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h3 style="margin:0">Rewards & Offers</h3><span class="badge" id="linkedBadge">No account</span></div>
@@ -40,6 +40,28 @@
     <input id="codeInput" maxlength="4" inputmode="numeric" placeholder="1234" />
     <div class="row" style="margin-top:12px"><button class="btn" id="linkCode">Link</button><button class="btn secondary" id="closeCode">Cancel</button></div>
   </div></div>
+
+  <div class="modal" id="addItemModal"><div class="box">
+    <h3 style="margin-top:0">Add Menu Item</h3>
+    <p class="small">Add an item directly from the register.</p>
+    <label>Name</label><input id="mName" placeholder="e.g. Cheeseburger" />
+    <label>Category</label><select id="mCat"><option>Food</option><option>Drinks</option><option>Desserts</option><option>Deals</option></select>
+    <label>Price</label><input id="mPrice" type="number" step="0.01" min="0" placeholder="4.99" />
+    <label>Picture URL</label><input id="mImg" placeholder="https://..." />
+    <label>Or upload picture</label><input id="mFile" type="file" accept="image/*" />
+    <div class="row" style="margin-top:12px"><button class="btn" id="saveItem">Save Item</button><button class="btn secondary" id="closeAddItem">Close</button></div>
+  </div></div>
+
+  <div class="tap-overlay" id="tapOverlay">
+    <div class="tap-full">
+      <div class="tap-amount" id="tapAmt">$0.00</div>
+      <div class="tap-visual big"><div class="tap-rings"></div><div class="tap-icon">))</div></div>
+      <div class="tap-status" id="tapStatus">Ready for tap</div>
+      <div class="tap-sub">Have customer scan with DSM app to pay from balance</div>
+      <div class="qr-box" style="margin:18px auto 8px;max-width:240px"><img id="tapQr" alt="QR"></div>
+      <button class="btn secondary" id="cancelPay" style="margin-top:14px;min-width:160px">Cancel</button>
+    </div>
+  </div>
 
   <script src="js/app.js"></script>
   <script>
@@ -69,7 +91,7 @@
       if(!linkedUserId){badge.textContent='No account'; info.innerHTML='Link a customer\'s 4-digit rewards code.'; sel.innerHTML='<option value="">Link account to redeem</option>'; return;}
       const u=d.users.find(x=>x.id===linkedUserId);
       if(!u){linkedUserId=null; renderLinked(); return;}
-      badge.textContent=u.name; info.innerHTML=`<b>${u.name}</b> · Code ${u.code} · Points <b>${u.points||0}</b> · Balance <b>${DT.fmt(u.balance||0)}</b>`;
+      badge.textContent=u.name; info.innerHTML=`<b>${u.name}</b> · Code ${u.code} · Points <b>${u.points||0}</b> · Balance <b>${u.unlimited?'Unlimited':DT.fmt(u.balance||0)}</b>`;
       sel.innerHTML='<option value="">Select offer</option>'+d.offers.map(o=>`<option value="${o.id}">${o.title} (${o.cost} pts)${(u.points||0)<o.cost?' - need more':''}</option>`).join('');
     }
     function stopPoll(){ if(payPoll) clearInterval(payPoll); payPoll=null; }
@@ -77,12 +99,12 @@
       const d=DT.load(); const t=total(); if(t<=0){return false;}
       if(linkedUserId){ const u=d.users.find(x=>x.id===linkedUserId); if(u){ u.points = (u.points||0) + Math.floor(t * (d.rewards.pointsPerDollar||10)); } }
       DT.save(d);
-      cart=[]; currentPayment=null; DT.clearPendingPayment(); stopPoll();
-      $('payArea').innerHTML=`<div class="panel tap-screen"><div class="pay-success">Payment complete</div><div class="small">${paymentMethod}${linkedUserId?' · points awarded':''}</div></div>`;
+      cart=[]; currentPayment=null; DT.clearPendingPayment(); stopPoll(); closeTapOverlay();
+      $('payArea').innerHTML=`<div class="panel" style="text-align:center"><div class="pay-success">Payment complete</div><div class="small">${paymentMethod}${linkedUserId?' · points awarded':''}</div></div>`;
       setTimeout(()=>{ if($('payArea').querySelector('.pay-success')) $('payArea').innerHTML=''; }, 3500);
       renderCart(); return true;
     }
-    $('clearCart').onclick=()=>{cart=[]; stopPoll(); DT.clearPendingPayment(); currentPayment=null; $('payArea').innerHTML=''; renderCart();};
+    $('clearCart').onclick=()=>{cart=[]; stopPoll(); DT.clearPendingPayment(); currentPayment=null; closeTapOverlay(); $('payArea').innerHTML=''; renderCart();};
     const cm=$('codeModal');
     $('mobileAppBtn').onclick=()=>{cm.classList.add('open'); $('codeInput').focus();};
     $('closeCode').onclick=()=>cm.classList.remove('open');
@@ -91,24 +113,35 @@
       if(!u){alert('No account found for that 4-code.'); return;}
       linkedUserId=u.id; cm.classList.remove('open'); $('codeInput').value=''; renderLinked();
     };
+
+    const am=$('addItemModal');
+    $('openAddItem').onclick=()=>{am.classList.add('open'); $('mName').focus();};
+    $('closeAddItem').onclick=()=>am.classList.remove('open');
+    am.addEventListener('click',e=>{if(e.target===am) am.classList.remove('open')});
+    async function fileToDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file);});}
+    $('saveItem').onclick=async()=>{
+      const name=$('mName').value.trim(); const price=parseFloat($('mPrice').value||'0'); const cat=$('mCat').value;
+      let img=$('mImg').value.trim(); const file=$('mFile').files[0];
+      if(!name){alert('Enter a name'); return;}
+      if(file){try{img=await fileToDataUrl(file);}catch(e){}}
+      DT.addMenuItem({id:DT.uid(),name,category:cat,price:(isNaN(price)?0:price),img:img||'https://via.placeholder.com/400x240?text=Item'});
+      $('mName').value=''; $('mPrice').value=''; $('mImg').value=''; $('mFile').value=''; am.classList.remove('open'); renderMenu();
+    };
     $('cashPay').onclick=()=>{ if(total()<=0){alert('Cart is empty');return;} completeOrder('Cash / external card'); };
 
+    function openTapOverlay(t, qr){
+      $('tapAmt').textContent=DT.fmt(t); $('tapQr').src=qr; $('tapStatus').textContent='Ready for tap'; $('tapStatus').className='tap-status';
+      $('tapOverlay').classList.add('open');
+    }
+    function closeTapOverlay(){ $('tapOverlay').classList.remove('open'); }
     $('tapPay').onclick=()=>{
       const t=total(); if(t<=0){return;}
       currentPayment={id:DT.uid(), amount:t, created:Date.now(), status:'pending', forUserId:linkedUserId||null};
       DT.setPendingPayment(currentPayment);
       const payload=JSON.stringify({t:'pay',id:currentPayment.id,amount:t});
-      const qr=DT.makeQRUrl(payload,220);
-      $('payArea').innerHTML=`<div class="panel tap-screen">
-        <div class="small">Tap to Pay</div>
-        <div class="tap-amount">${DT.fmt(t)}</div>
-        <div class="tap-visual"><div class="tap-icon">))</div></div>
-        <div class="tap-status" id="tapStatus">Ready for tap</div>
-        <div class="tap-sub">Customer: open DSM app → Scan & pay, then scan this code with their phone to pay from balance.</div>
-        <div class="qr-box" style="margin:14px auto 8px;max-width:240px"><img src="${qr}" alt="QR"></div>
-        <div class="row" style="margin-top:8px;justify-content:center"><button class="btn secondary" id="cancelPay">Cancel</button></div>
-      </div>`;
-      $('cancelPay').onclick=()=>{stopPoll(); DT.clearPendingPayment(); currentPayment=null; $('payArea').innerHTML='';};
+      const qr=DT.makeQRUrl(payload,240);
+      openTapOverlay(t, qr);
+      $('cancelPay').onclick=()=>{stopPoll(); DT.clearPendingPayment(); currentPayment=null; closeTapOverlay();};
       stopPoll();
       payPoll=setInterval(async()=>{
         if(DT.pullSync) await DT.pullSync(false);
@@ -116,9 +149,9 @@
         if(p && currentPayment && p.id===currentPayment.id && p.status==='paid'){
           stopPoll();
           const st=$('tapStatus'); if(st){st.textContent='Approved'; st.className='tap-status pay-success';}
-          setTimeout(()=>completeOrder('Tap to Pay'), 700);
+          setTimeout(()=>{closeTapOverlay(); completeOrder('Tap to Pay');}, 900);
         }
-      }, 1500);
+      }, 1200);
     };
 
     $('redeemBtn').onclick=()=>{
